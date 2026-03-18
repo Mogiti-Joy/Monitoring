@@ -101,33 +101,75 @@ def collect_data():
 "Africa Transport": "https://africatransportpolicy.org/feed/",
 "Africa Urban Development": "https://africanurban.org/feed/"
     }
-
     all_articles = []
 
     for source, url in rss_feeds.items():
+        print(f"Scraping {source}...")
         feed = feedparser.parse(url)
 
         for entry in feed.entries:
-            article = {
+            try:
+                link = entry.get("link", "")
+                title = entry.get("title", "")
+                author = (
+                    entry.get("author") or
+                    entry.get("dc_creator") or
+                    "Unknown"
+                )
+                published = entry.get("published", "")
+                summary = entry.get("summary", "")
+
+                # Extract full article text
+                text = ""
+                if link:
+                    try:
+                        article = Article(link)
+                        article.download()
+                        article.parse()
+                        text = article.text
+                    except Exception:
+                        text = ""
+
+                # CLASSIFY CATEGORY
+                category = classify_article(title, summary, text)
+
+            except Exception:
+                link, title, author, published, summary, text, category = "", "", "Unknown", "", "", "", "Other"
+
+            article_data = {
                 "source": source,
-                "title": entry.get("title", ""),
-                "link": entry.get("link", ""),
-                "published": entry.get("published", ""),
+                "title": title,
+                "author": author,
+                "published": published,
+                "summary": summary,
+                "category": category, 
+                "url": link,
+                "text": text,
                 "date_collected": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
-            all_articles.append(article)
+
+            all_articles.append(article_data)
 
     # Convert to DataFrame
     df = pd.DataFrame(all_articles)
 
-    # Save to CSV
-    df.to_csv("daily_news.csv", index=False)
+    # Remove duplicates
+    df.drop_duplicates(subset=["url"], inplace=True)
 
-    # Keep your original log (optional)
+    # Save to CSV (append mode)
+    file_name = "daily_news.csv"
+
+    if os.path.exists(file_name):
+        df.to_csv(file_name, mode='a', header=False, index=False)
+    else:
+        df.to_csv(file_name, index=False)
+
+    # Log runs
     with open("data.txt", "a") as f:
         f.write(f"Run at {datetime.datetime.now()} - Collected {len(df)} articles\n")
 
     print(f"Collected {len(df)} articles")
+
 
 if __name__ == "__main__":
     collect_data()
