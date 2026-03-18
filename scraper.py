@@ -154,40 +154,43 @@ for source, url in rss_feeds.items():
 
         if not feed.entries:
             print(f"No entries for {source}")
-            continue
+            continue 
             for entry in feed.entries:
-            try:
-                title = clean_text(entry.get("title", ""))
-                summary = clean_text(entry.get("summary", ""))
-                link = entry.get("link", "")
-                published = entry.get("published", "")
-                author = entry.get("author", "Unknown")
+                try:
+        title = clean_text(entry.get("title", ""))
+        summary = clean_text(entry.get("summary", ""))
+        link = entry.get("link", "")
+        published = entry.get("published", "")
+        author = entry.get("author", "Unknown")
 
-                full_text = f"{title} {summary}"
+        full_text = f"{title} {summary}"
 
-                #The analysis functions go HERE (inside loop)
-                sentiment_score, sentiment_label = get_sentiment(full_text)
-                keywords = extract_keywords(full_text)
+        sentiment_score, sentiment_label = get_sentiment(full_text)
+        keywords = extract_keywords(full_text)
 
-                article = {
-                    "id": link,
-                    "source": source,
-                    "title": title,
-                    "summary": summary,
-                    "full_text": full_text,
-                    "link": link,
-                    "author": author,
-                    "published_date": published,
-                    "collected_date": datetime.datetime.now(),
-                    "category": category,  # make sure this exists!
-                    "sentiment_score": sentiment_score,
-                    "sentiment_label": sentiment_label,
-                    "keywords": keywords,
-                    "day": datetime.datetime.now().strftime("%A"),
-                    "month": datetime.datetime.now().strftime("%B"),
-                    "year": datetime.datetime.now().year
-                }
+        article = {
+            "id": link,
+            "source": source,
+            "title": title,
+            "summary": summary,
+            "full_text": full_text,
+            "link": link,
+            "author": author,
+            "published_date": published,
+            "collected_date": datetime.datetime.now(),
+            "category": category,
+            "sentiment_score": sentiment_score,
+            "sentiment_label": sentiment_label,
+            "keywords": keywords,
+            "day": datetime.datetime.now().strftime("%A"),
+            "month": datetime.datetime.now().strftime("%B"),
+            "year": datetime.datetime.now().year
+        }
 
+        all_articles.append(article)
+
+    except Exception as e:
+        print(f"Error processing entry: {e}")
                 # APPEND MUST BE HERE
                 all_articles.append(article)
             except Exception as e:
