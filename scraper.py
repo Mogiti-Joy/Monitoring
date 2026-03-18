@@ -1,6 +1,7 @@
 import datetime
 import feedparser
 import pandas as pd
+import os
 
 def collect_data():
     print("Collecting data...")
