@@ -124,48 +124,49 @@ def collect_data():
 "Africa Transport": "https://africatransportpolicy.org/feed/",
 "Africa Urban Development": "https://africanurban.org/feed/"
     }
-    all_articles = []
-    for source, url in rss_feeds.items():
-        feed = feedparser.parse(url)
+all_articles = []
 
-        for entry in feed.entries:
+for source, url in rss_feeds.items():
+    feed = feedparser.parse(url)
 
-            # Safely extract fields
-            title = entry.get("title", "")
-            author = entry.get("author", "")
-            published = entry.get("published", "")
-            summary = entry.get("summary", "")
-            link = entry.get("link", "")
+    for entry in feed.entries:
 
-            # Combine text for analysis
-            text = f"{title} {summary}"
+        title = entry.get("title", "")
+        author = entry.get("author", "")
+        published = entry.get("published", "")
+        summary = entry.get("summary", "")
+        link = entry.get("link", "")
 
-            # Apply analysis
-            category = classify_article(text)
-            sentiment = get_sentiment(text)
+        text = f"{title} {summary}".lower()
 
-            article = {
-                "source": source,
-                "title": title,
-                "author": author,
-                "published": published,
-                "summary": summary,
-                "category": category,
-                "sentiment": sentiment,
-                "url": link,
-                "text": text,
-                "date_collected": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
+        category = classify_article(text)
+        sentiment = get_sentiment(text)
 
-            all_articles.append(article)
+        article = {
+            "source": source,
+            "title": title,
+            "author": author,
+            "published": published,
+            "summary": summary,
+            "category": category,
+            "sentiment": sentiment,
+            "url": link,
+            "text": text,
+            "date_collected": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
 
-    # Convert to DataFrame
-    df = pd.DataFrame(all_articles)
+        all_articles.append(article)
 
-    # Append instead of overwrite (important!)
-    df.to_csv("daily_news.csv", mode='a', header=False, index=False)
+df = pd.DataFrame(all_articles)
 
-    print(f"Collected {len(df)} articles")
+file_name = "daily_news.csv"
+
+if os.path.exists(file_name):
+    df.to_csv(file_name, mode='a', header=False, index=False)
+else:
+    df.to_csv(file_name, index=False)
+
+print(f"Collected {len(df)} articles")
 
 if __name__ == "__main__":
     collect_data()
