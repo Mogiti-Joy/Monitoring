@@ -103,7 +103,7 @@ def collect_data():
 "Africa Urban Development": "https://africanurban.org/feed/"
     }
     def classify_article(text):
-    text = text.lower()
+        text = text.lower()
 
     if any(word in text for word in ["ai", "artificial intelligence", "machine learning"]):
         return "AI"
