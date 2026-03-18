@@ -167,8 +167,8 @@ for source, url in rss_feeds.items():
 
     except Exception as e:
         print(f"Error with {source}: {e}")
-            sentiment_score, sentiment_label = get_sentiment(full_text)
-            keywords = extract_keywords(full_text)
+        sentiment_score, sentiment_label = get_sentiment(full_text)
+        keywords = extract_keywords(full_text)
 
             article = {
                 "id": link,
