@@ -176,17 +176,17 @@ for entry in feed.entries:
             }
             all_articles.append(article)
 
-df = pd.DataFrame(all_articles) # Line 179: Indent this!
-df.drop_duplicates(subset=["id"], inplace=True)
-
-    file_name = "news_dataset.csv"
-
-    if os.path.exists(file_name):
-        df.to_csv(file_name, mode='a', header=False, index=False)
-    else:
-        df.to_csv(file_name, index=False)
-
-    print(f"Collected {len(df)} articles")
-
+if all_articles:
+        df = pd.DataFrame(all_articles)
+        df.drop_duplicates(subset=["id"], inplace=True)
+        
+        file_name = "news_dataset.csv" # Line 182: Make sure this has exactly 8 spaces total
+        
+        if os.path.exists(file_name):
+            df.to_csv(file_name, mode='a', header=False, index=False)
+        else:
+            df.to_csv(file_name, index=False)
+            
+        print(f"Collected {len(df)} articles")
 if __name__ == "__main__":
     collect_data()
