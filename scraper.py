@@ -2,6 +2,7 @@ import datetime
 import feedparser
 import pandas as pd
 import os
+from textblob import TextBlob
 
 # Classification function
 def classify_article(text):
