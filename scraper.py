@@ -3,16 +3,20 @@ import feedparser
 import pandas as pd
 import os
 from textblob import TextBlob
+# Added a simple keyword extractor so the code doesn't crash
+def extract_keywords(text):
+    words = text.lower().split()
+    # Simple logic: return words longer than 5 chars as "keywords"
+    return ", ".join(list(set([w for w in words if len(w) > 5]))[:5])
 
 def clean_text(text):
     text = str(text)
     text = re.sub(r'<.*?>', '', text)  # remove HTML
     text = re.sub(r'\s+', ' ', text)   # remove extra spaces
     return text.strip()
-# Classification function
+
 def classify_article(text):
     text = text.lower()
-
     if any(word in text for word in ["ai", "artificial intelligence", "machine learning"]):
         return "AI"
     elif any(word in text for word in ["health", "hospital", "disease", "malaria", "covid"]):
@@ -26,18 +30,15 @@ def classify_article(text):
     else:
         return "Other"
 
-# Sentiment Function 
 def get_sentiment(text):
     blob = TextBlob(text)
     polarity = blob.sentiment.polarity
-
     if polarity > 0:
         label = "Positive"
     elif polarity < 0:
         label = "Negative"
     else:
         label = "Neutral"
-
     return polarity, label
 
 def collect_data():
@@ -139,11 +140,10 @@ def collect_data():
 "Africa Transport": "https://africatransportpolicy.org/feed/",
 "Africa Urban Development": "https://africanurban.org/feed/"
     }
-    all_articles = []
+all_articles = []
 
     for source, url in rss_feeds.items():
         feed = feedparser.parse(url)
-
         for entry in feed.entries:
             title = clean_text(entry.get("title", ""))
             summary = clean_text(entry.get("summary", ""))
@@ -158,38 +158,33 @@ def collect_data():
             keywords = extract_keywords(full_text)
 
             article = {
-                # IDENTIFIERS
                 "id": link,
                 "source": source,
-
-                # CONTENT
                 "title": title,
                 "summary": summary,
                 "full_text": full_text,
                 "link": link,
-
-                # METADATA
                 "author": author,
                 "published_date": published,
                 "collected_date": datetime.datetime.now(),
-
-                # ANALYTICS FIELDS
                 "category": category,
                 "sentiment_score": sentiment_score,
                 "sentiment_label": sentiment_label,
                 "keywords": keywords,
-
-                # REPORTING FIELDS
                 "day": datetime.datetime.now().strftime("%A"),
                 "month": datetime.datetime.now().strftime("%B"),
                 "year": datetime.datetime.now().year
             }
-
             all_articles.append(article)
-df = pd.DataFrame(all_articles)
 
-    # CREATE DATAFRAME AND SAVE INSIDE THE FUNCTION
+    # --- ALL THIS MUST BE INSIDE THE FUNCTION ---
+    if not all_articles:
+        print("No articles found.")
+        return
+
+    df = pd.DataFrame(all_articles)
     df.drop_duplicates(subset=["id"], inplace=True)
+    
     file_name = "news_dataset.csv"
 
     if os.path.exists(file_name):
@@ -199,6 +194,5 @@ df = pd.DataFrame(all_articles)
 
     print(f"Collected {len(df)} articles")
 
-# This calls the function and runs everything inside it
 if __name__ == "__main__":
     collect_data()
