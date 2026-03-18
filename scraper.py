@@ -181,29 +181,37 @@ def collect_data():
                     print(f"Error processing entry from {source}: {e}")
                 except Exception as e:
                     print(f"Error with {source}: {e}")
-if all_articles:
-    df = pd.DataFrame(all_articles)
-    df.drop_duplicates(subset=["id"], inplace=True)
+                    try:
+    all_articles = []
 
-    file_name = "news_dataset.csv"
+    # your scraping logic here
 
-    if os.path.exists(file_name):
-        existing_df = pd.read_csv(file_name)
+    if all_articles:
+        df = pd.DataFrame(all_articles)
+        df.drop_duplicates(subset=["id"], inplace=True)
 
-        combined_df = pd.concat([existing_df, df], ignore_index=True)
-        combined_df.drop_duplicates(subset=["id"], inplace=True)
+        file_name = "news_dataset.csv"
 
-        combined_df.to_csv(file_name, index=False)
+        if os.path.exists(file_name):
+            existing_df = pd.read_csv(file_name)
 
-        new_count = len(combined_df) - len(existing_df)
-        print(f"Added {new_count} new articles")
+            combined_df = pd.concat([existing_df, df], ignore_index=True)
+            combined_df.drop_duplicates(subset=["id"], inplace=True)
+
+            combined_df.to_csv(file_name, index=False)
+
+            new_count = len(combined_df) - len(existing_df)
+            print(f"Added {new_count} new articles")
+
+        else:
+            df.to_csv(file_name, index=False)
+            print(f"Collected {len(df)} articles (first run)")
 
     else:
-        df.to_csv(file_name, index=False)
-        print(f"Collected {len(df)} articles (first run)")
+        print("No articles collected")
 
-else:
-    print("No articles collected")
+except Exception as e:
+    print(f"Error: {e}")
 
 if __name__ == "__main__":
     collect_data()
