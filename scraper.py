@@ -102,42 +102,34 @@ def collect_data():
 "Africa Transport": "https://africatransportpolicy.org/feed/",
 "Africa Urban Development": "https://africanurban.org/feed/"
     }
+    def classify_article(text):
+    text = text.lower()
+
+    if any(word in text for word in ["ai", "artificial intelligence", "machine learning"]):
+        return "AI"
+
+    elif any(word in text for word in ["health", "hospital", "disease", "malaria", "covid"]):
+        return "Health"
+
+    elif any(word in text for word in ["election", "government", "president", "parliament"]):
+        return "Politics"
+
+    elif any(word in text for word in ["business", "market", "finance", "economy"]):
+        return "Business"
+
+    elif any(word in text for word in ["climate", "flood", "drought", "weather"]):
+        return "Climate"
+
+    else:
+        return "Other"
+        
     all_articles = []
 
     for source, url in rss_feeds.items():
-        print(f"Scraping {source}...")
         feed = feedparser.parse(url)
 
         for entry in feed.entries:
-            try:
-                link = entry.get("link", "")
-                title = entry.get("title", "")
-                author = (
-                    entry.get("author") or
-                    entry.get("dc_creator") or
-                    "Unknown"
-                )
-                published = entry.get("published", "")
-                summary = entry.get("summary", "")
-
-                # Extract full article text
-                text = ""
-                if link:
-                    try:
-                        article = Article(link)
-                        article.download()
-                        article.parse()
-                        text = article.text
-                    except Exception:
-                        text = ""
-
-                # CLASSIFY CATEGORY
-                category = classify_article(title, summary, text)
-
-            except Exception:
-                link, title, author, published, summary, text, category = "", "", "Unknown", "", "", "", "Other"
-
-            article_data = {
+            article = {
                 "source": source,
                 "title": title,
                 "author": author,
@@ -148,24 +140,14 @@ def collect_data():
                 "text": text,
                 "date_collected": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
-
-            all_articles.append(article_data)
-
-# Convert to DataFrame
+            all_articles.append(article)
+    # Convert to DataFrame
     df = pd.DataFrame(all_articles)
 
-    # Remove duplicates
-    df.drop_duplicates(subset=["url"], inplace=True)
+    # Save to CSV
+    df.to_csv("daily_news.csv", index=False)
 
-    # Save CSV
-    file_name = "daily_news.csv"
-
-    if os.path.exists(file_name):
-        df.to_csv(file_name, mode='a', header=False, index=False)
-    else:
-        df.to_csv(file_name, index=False)
-
-    # THIS LINE MUST ALIGN HERE
+    # Keep your original log (optional)
     with open("data.txt", "a") as f:
         f.write(f"Run at {datetime.datetime.now()} - Collected {len(df)} articles\n")
 
