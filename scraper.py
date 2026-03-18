@@ -183,30 +183,27 @@ def collect_data():
                     print(f"Error processing entry from {source}: {e}")
         except Exception as e:
             print(f"Error with {source}: {e}")
+if all_articles:
+    df = pd.DataFrame(all_articles)
+    df.drop_duplicates(subset=["id"], inplace=True)
 
-    if all_articles:
-        df = pd.DataFrame(all_articles)
-        df.drop_duplicates(subset=["id"], inplace=True)
+    file_name = "news_dataset.csv"   
 
-        file_name = "news_dataset.csv"
+    if os.path.exists(file_name):
+        existing_df = pd.read_csv(file_name)
 
-if os.path.exists(file_name):
-    existing_df = pd.read_csv(file_name)
+        combined_df = pd.concat([existing_df, df], ignore_index=True)
+        combined_df.drop_duplicates(subset=["id"], inplace=True)
 
-    # Combine old + new
-    combined_df = pd.concat([existing_df, df], ignore_index=True)
+        combined_df.to_csv(file_name, index=False)
 
-    # Remove duplicates across ALL data
-    combined_df.drop_duplicates(subset=["id"], inplace=True)
+        new_count = len(combined_df) - len(existing_df)
+        print(f"Added {new_count} new articles")
 
-    combined_df.to_csv(file_name, index=False)
+    else:
+        df.to_csv(file_name, index=False)
+        print(f"Collected {len(df)} articles (first run)")
 
-    new_count = len(combined_df) - len(existing_df)
-    print(f"Added {new_count} new articles")
-
-else:
-    df.to_csv(file_name, index=False)
-    print(f"Collected {len(df)} articles (first run)")
 
 
 if __name__ == "__main__":
