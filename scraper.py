@@ -195,7 +195,7 @@ def collect_data():
                     else:
                         df.to_csv(file_name, index=False)
                         print(f"Collected {len(df)} articles (first run)")
-        else:
+else:
                         print("No articles collected")
                         if __name__ == "__main__":
                             collect_data()
