@@ -188,4 +188,5 @@ def collect_data():
                                 print("No articles collected")
                     except Exception as e:
                         print(f"Error saving data: {e}")
+                        
                         collect_data()
