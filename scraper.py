@@ -176,9 +176,9 @@ for entry in feed.entries:
             }
             all_articles.append(article)
 
-    df = pd.DataFrame(all_articles)
+df = pd.DataFrame(all_articles) # Line 179: Indent this!
     df.drop_duplicates(subset=["id"], inplace=True)
-    
+
     file_name = "news_dataset.csv"
 
     if os.path.exists(file_name):
