@@ -142,7 +142,7 @@ def collect_data():
     }
 all_articles = []
 # First loop matches the dictionary indentation
-    for source, url in rss_feeds.items():
+for source, url in rss_feeds.items():
         feed = feedparser.parse(url)
  # Second loop is indented FURTHER to be INSIDE the first loop
         for entry in feed.entries:
