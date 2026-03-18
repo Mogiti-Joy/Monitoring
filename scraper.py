@@ -137,9 +137,9 @@ def collect_data():
     }
     all_articles = []
     for source, feed in rss_feeds.items():
-    try:
-        for entry in feed.entries:
-            try:
+        try:
+            for entry in feed.entries:
+                try:
                 title = entry.get("title", "")
                 summary = entry.get("summary", "")
                 link = entry.get("link", "")
