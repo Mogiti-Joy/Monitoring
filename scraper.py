@@ -176,11 +176,6 @@ for source, url in rss_feeds.items():
             }
             all_articles.append(article)
 
-    # --- ALL THIS MUST BE INSIDE THE FUNCTION ---
-    if not all_articles:
-        print("No articles found.")
-        return
-
     df = pd.DataFrame(all_articles)
     df.drop_duplicates(subset=["id"], inplace=True)
     
