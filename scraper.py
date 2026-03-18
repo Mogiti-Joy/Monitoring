@@ -3,18 +3,14 @@ import feedparser
 import pandas as pd
 import os
 from textblob import TextBlob
-# Added a simple keyword extractor so the code doesn't crash
 def extract_keywords(text):
     words = text.lower().split()
-    # Simple logic: return words longer than 5 chars as "keywords"
     return ", ".join(list(set([w for w in words if len(w) > 5]))[:5])
-
 def clean_text(text):
     text = str(text)
-    text = re.sub(r'<.*?>', '', text)  # remove HTML
-    text = re.sub(r'\s+', ' ', text)   # remove extra spaces
+    text = re.sub(r'<.*?>', '', text)
+    text = re.sub(r'\s+', ' ', text)
     return text.strip()
-
 def classify_article(text):
     text = text.lower()
     if any(word in text for word in ["ai", "artificial intelligence", "machine learning"]):
@@ -29,7 +25,6 @@ def classify_article(text):
         return "Climate"
     else:
         return "Other"
-
 def get_sentiment(text):
     blob = TextBlob(text)
     polarity = blob.sentiment.polarity
@@ -40,10 +35,9 @@ def get_sentiment(text):
     else:
         label = "Neutral"
     return polarity, label
-
 def collect_data():
     print("Collecting data...")
-
+    
     # RSS feeds (you can paste ALL yours here)
     rss_feeds = {
         "Africanews": "https://www.africanews.com/feed/",
@@ -140,75 +134,68 @@ def collect_data():
 "Africa Transport": "https://africatransportpolicy.org/feed/",
 "Africa Urban Development": "https://africanurban.org/feed/"
     }
-all_articles = []
-def clean_text(text):
-    return str(text).strip()
+    all_articles = []
 
-for source, url in rss_feeds.items():
-    try:
-        feed = feedparser.parse(url)
+    for source, url in rss_feeds.items():
+        try:
+            feed = feedparser.parse(url)
 
-        if feed.bozo:
-            print(f"Error parsing {source}: {feed.bozo_exception}")
-            continue
+            if feed.bozo:
+                print(f"Error parsing {source}: {feed.bozo_exception}")
+                continue
 
-        if not feed.entries:
-            print(f"No entries for {source}")
-            continue 
+            if not feed.entries:
+                print(f"No entries for {source}")
+                continue
+
             for entry in feed.entries:
                 try:
-        title = clean_text(entry.get("title", ""))
-        summary = clean_text(entry.get("summary", ""))
-        link = entry.get("link", "")
-        published = entry.get("published", "")
-        author = entry.get("author", "Unknown")
+                    title = clean_text(entry.get("title", ""))
+                    summary = clean_text(entry.get("summary", ""))
+                    link = entry.get("link", "")
+                    published = entry.get("published", "")
+                    author = entry.get("author", "Unknown")
 
-        full_text = f"{title} {summary}"
+                    full_text = f"{title} {summary}"
+                    category = classify_article(full_text)
+                    sentiment_score, sentiment_label = get_sentiment(full_text)
+                    keywords = extract_keywords(full_text)
+                    article = {
+                        "id": link,
+                        "source": source,
+                        "title": title,
+                        "summary": summary,
+                        "full_text": full_text,
+                        "link": link,
+                        "author": author,
+                        "published_date": published,
+                        "collected_date": datetime.datetime.now(),
+                        "category": category,
+                        "sentiment_score": sentiment_score,
+                        "sentiment_label": sentiment_label,
+                        "keywords": keywords
+                    }
 
-        sentiment_score, sentiment_label = get_sentiment(full_text)
-        keywords = extract_keywords(full_text)
+                    all_articles.append(article)
 
-        article = {
-            "id": link,
-            "source": source,
-            "title": title,
-            "summary": summary,
-            "full_text": full_text,
-            "link": link,
-            "author": author,
-            "published_date": published,
-            "collected_date": datetime.datetime.now(),
-            "category": category,
-            "sentiment_score": sentiment_score,
-            "sentiment_label": sentiment_label,
-            "keywords": keywords,
-            "day": datetime.datetime.now().strftime("%A"),
-            "month": datetime.datetime.now().strftime("%B"),
-            "year": datetime.datetime.now().year
-        }
+                except Exception as e:
+                    print(f"Error processing entry from {source}: {e}")
+        except Exception as e:
+            print(f"Error with {source}: {e}")
 
-        all_articles.append(article)
-
-    except Exception as e:
-        print(f"Error processing entry: {e}")
-                # APPEND MUST BE HERE
-                all_articles.append(article)
-            except Exception as e:
-                print(f"Error processing entry from {source}: {e}")
-            except Exception as e:
-                print(f"Error with {source}: {e}")
-
-if all_articles:
+    if all_articles:
         df = pd.DataFrame(all_articles)
         df.drop_duplicates(subset=["id"], inplace=True)
-        
-        file_name = "news_dataset.csv" # Line 182: Make sure this has exactly 8 spaces total
-        
+
+        file_name = "news_dataset.csv"
+
         if os.path.exists(file_name):
             df.to_csv(file_name, mode='a', header=False, index=False)
         else:
             df.to_csv(file_name, index=False)
-            
+
         print(f"Collected {len(df)} articles")
+
+
 if __name__ == "__main__":
     collect_data()
