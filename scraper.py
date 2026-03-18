@@ -152,43 +152,20 @@ def collect_data():
             all_articles.append(article_data)
 
 # Convert to DataFrame
-df = pd.DataFrame(all_articles)
+    df = pd.DataFrame(all_articles)
 
-# Reorder columns (VERY IMPORTANT for clean structure)
-columns_order = [
-    "source",
-    "title",
-    "author",
-    "published",
-    "summary",
-    "category",
-    "url",
-    "text",
-    "date_collected"
-]
+    # Remove duplicates
+    df.drop_duplicates(subset=["url"], inplace=True)
 
-df = df[columns_order]
+    # Save CSV
+    file_name = "daily_news.csv"
 
-# Clean text (remove line breaks that break CSV view)
-df["title"] = df["title"].str.replace("\n", " ", regex=False)
-df["summary"] = df["summary"].str.replace("\n", " ", regex=False)
-df["text"] = df["text"].str.replace("\n", " ", regex=False)
+    if os.path.exists(file_name):
+        df.to_csv(file_name, mode='a', header=False, index=False)
+    else:
+        df.to_csv(file_name, index=False)
 
-# Remove duplicates
-df.drop_duplicates(subset=["url"], inplace=True)
-
-file_name = "daily_news.csv"
-
-# Save properly formatted CSV
-df.to_csv(
-    file_name,
-    mode='a' if os.path.exists(file_name) else 'w',
-    header=not os.path.exists(file_name),
-    index=False,
-    encoding='utf-8-sig',  
-    quoting=1               
-)
-    # Log runs
+    # THIS LINE MUST ALIGN HERE
     with open("data.txt", "a") as f:
         f.write(f"Run at {datetime.datetime.now()} - Collected {len(df)} articles\n")
 
