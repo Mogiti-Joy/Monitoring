@@ -151,26 +151,48 @@ def collect_data():
 
             all_articles.append(article_data)
 
-    # Convert to DataFrame
-    df = pd.DataFrame(all_articles)
+# Convert to DataFrame
+df = pd.DataFrame(all_articles)
 
-    # Remove duplicates
-    df.drop_duplicates(subset=["url"], inplace=True)
+# Reorder columns (VERY IMPORTANT for clean structure)
+columns_order = [
+    "source",
+    "title",
+    "author",
+    "published",
+    "summary",
+    "category",
+    "url",
+    "text",
+    "date_collected"
+]
 
-    # Save to CSV (append mode)
-    file_name = "daily_news.csv"
+df = df[columns_order]
 
-    if os.path.exists(file_name):
-        df.to_csv(file_name, mode='a', header=False, index=False)
-    else:
-        df.to_csv(file_name, index=False)
+# Clean text (remove line breaks that break CSV view)
+df["title"] = df["title"].str.replace("\n", " ", regex=False)
+df["summary"] = df["summary"].str.replace("\n", " ", regex=False)
+df["text"] = df["text"].str.replace("\n", " ", regex=False)
 
+# Remove duplicates
+df.drop_duplicates(subset=["url"], inplace=True)
+
+file_name = "daily_news.csv"
+
+# Save properly formatted CSV
+df.to_csv(
+    file_name,
+    mode='a' if os.path.exists(file_name) else 'w',
+    header=not os.path.exists(file_name),
+    index=False,
+    encoding='utf-8-sig',  
+    quoting=1               
+)
     # Log runs
     with open("data.txt", "a") as f:
         f.write(f"Run at {datetime.datetime.now()} - Collected {len(df)} articles\n")
 
     print(f"Collected {len(df)} articles")
-
 
 if __name__ == "__main__":
     collect_data()
