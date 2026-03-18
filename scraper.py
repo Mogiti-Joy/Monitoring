@@ -188,5 +188,5 @@ def collect_data():
                                 print("No articles collected")
                     except Exception as e:
                         print(f"Error saving data: {e}")
-if __name__ == "__main__":
-    collect_data()
+                        if __name__ == "__main__":
+                            collect_data()
