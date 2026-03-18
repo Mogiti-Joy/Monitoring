@@ -2,6 +2,7 @@ import datetime
 import feedparser
 import pandas as pd
 import os
+import re
 from textblob import TextBlob
 def extract_keywords(text):
     words = text.lower().split()
@@ -189,12 +190,23 @@ def collect_data():
 
         file_name = "news_dataset.csv"
 
-        if os.path.exists(file_name):
-            df.to_csv(file_name, mode='a', header=False, index=False)
-        else:
-            df.to_csv(file_name, index=False)
+if os.path.exists(file_name):
+    existing_df = pd.read_csv(file_name)
 
-        print(f"Collected {len(df)} articles")
+    # Combine old + new
+    combined_df = pd.concat([existing_df, df], ignore_index=True)
+
+    # Remove duplicates across ALL data
+    combined_df.drop_duplicates(subset=["id"], inplace=True)
+
+    combined_df.to_csv(file_name, index=False)
+
+    new_count = len(combined_df) - len(existing_df)
+    print(f"Added {new_count} new articles")
+
+else:
+    df.to_csv(file_name, index=False)
+    print(f"Collected {len(df)} articles (first run)")
 
 
 if __name__ == "__main__":
