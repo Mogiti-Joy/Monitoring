@@ -141,10 +141,9 @@ def collect_data():
 "Africa Urban Development": "https://africanurban.org/feed/"
     }
 all_articles = []
-
-    for source, url in rss_feeds.items():
-        feed = feedparser.parse(url)
-        for entry in feed.entries:
+for source, url in rss_feeds.items():
+    feed = feedparser.parse(url)
+    for entry in feed.entries:
             title = clean_text(entry.get("title", ""))
             summary = clean_text(entry.get("summary", ""))
             link = entry.get("link", "")
