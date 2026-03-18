@@ -141,10 +141,21 @@ def collect_data():
 "Africa Urban Development": "https://africanurban.org/feed/"
     }
 all_articles = []
-# First loop matches the dictionary indentation
+def clean_text(text):
+    return str(text).strip()
+
 for source, url in rss_feeds.items():
+    try:
         feed = feedparser.parse(url)
- # Second loop is indented FURTHER to be INSIDE the first loop
+
+        if feed.bozo:
+            print(f"Error parsing {source}: {feed.bozo_exception}")
+            continue
+
+        if not feed.entries:
+            print(f"No entries for {source}")
+            continue
+
         for entry in feed.entries:
             title = clean_text(entry.get("title", ""))
             summary = clean_text(entry.get("summary", ""))
@@ -154,7 +165,8 @@ for source, url in rss_feeds.items():
 
             full_text = f"{title} {summary}"
 
-            category = classify_article(full_text)
+    except Exception as e:
+        print(f"Error with {source}: {e}")
             sentiment_score, sentiment_label = get_sentiment(full_text)
             keywords = extract_keywords(full_text)
 
