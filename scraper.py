@@ -2,6 +2,28 @@ import datetime
 import feedparser
 import pandas as pd
 import os
+from textblob import TextBlob
+
+# Classification function
+def classify_article(text):
+    text = str(text).lower()
+
+    if any(word in text for word in ["ai", "artificial intelligence", "machine learning"]):
+        return "AI"
+    elif any(word in text for word in ["health", "hospital", "disease", "malaria", "covid"]):
+        return "Health"
+    elif any(word in text for word in ["election", "government", "president", "parliament"]):
+        return "Politics"
+    elif any(word in text for word in ["business", "market", "finance", "economy"]):
+        return "Business"
+    elif any(word in text for word in ["climate", "flood", "drought", "weather"]):
+        return "Climate"
+    else:
+        return "Other"
+        
+# Sentiment Function
+def get_sentiment(text):
+    return TextBlob(str(text)).sentiment.polarity
 
 def collect_data():
     print("Collecting data...")
@@ -102,49 +124,46 @@ def collect_data():
 "Africa Transport": "https://africatransportpolicy.org/feed/",
 "Africa Urban Development": "https://africanurban.org/feed/"
     }
-def classify_article(text):
-    text = str(text).lower()
-
-    if any(word in text for word in ["ai", "artificial intelligence", "machine learning"]):
-        return "AI"
-    elif any(word in text for word in ["health", "hospital", "disease", "malaria", "covid"]):
-        return "Health"
-    elif any(word in text for word in ["election", "government", "president", "parliament"]):
-        return "Politics"
-    elif any(word in text for word in ["business", "market", "finance", "economy"]):
-        return "Business"
-    elif any(word in text for word in ["climate", "flood", "drought", "weather"]):
-        return "Climate"
-    else:
-        return "Other"
-        
     all_articles = []
-
     for source, url in rss_feeds.items():
         feed = feedparser.parse(url)
 
         for entry in feed.entries:
+
+            # Safely extract fields
+            title = entry.get("title", "")
+            author = entry.get("author", "")
+            published = entry.get("published", "")
+            summary = entry.get("summary", "")
+            link = entry.get("link", "")
+
+            # Combine text for analysis
+            text = f"{title} {summary}"
+
+            # Apply analysis
+            category = classify_article(text)
+            sentiment = get_sentiment(text)
+
             article = {
                 "source": source,
                 "title": title,
                 "author": author,
                 "published": published,
                 "summary": summary,
-                "category": category, 
+                "category": category,
+                "sentiment": sentiment,
                 "url": link,
                 "text": text,
-                "date_collected": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "date_collected": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
+
             all_articles.append(article)
+
     # Convert to DataFrame
     df = pd.DataFrame(all_articles)
 
-    # Save to CSV
-    df.to_csv("daily_news.csv", index=False)
-
-    # Keep your original log (optional)
-    with open("data.txt", "a") as f:
-        f.write(f"Run at {datetime.datetime.now()} - Collected {len(df)} articles\n")
+    # Append instead of overwrite (important!)
+    df.to_csv("daily_news.csv", mode='a', header=False, index=False)
 
     print(f"Collected {len(df)} articles")
 
