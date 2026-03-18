@@ -140,17 +140,15 @@ def collect_data():
         try:
             for entry in feed.entries:
                 try:
-                title = entry.get("title", "")
-                summary = entry.get("summary", "")
-                link = entry.get("link", "")
-                author = entry.get("author", "Unknown")
-                published = entry.get("published", "")
-
-                full_text = f"{title} {summary}"
-
-                category = classify_article(full_text)
-                sentiment_score, sentiment_label = get_sentiment(full_text)
-                keywords = extract_keywords(full_text)
+                    title = entry.get("title", "")
+                    summary = entry.get("summary", "")
+                    link = entry.get("link", "")
+                    author = entry.get("author", "Unknown")
+                    published = entry.get("published", "")
+                    full_text = f"{title} {summary}"
+                    category = classify_article(full_text)
+                    sentiment_score, sentiment_label = get_sentiment(full_text)
+                    keywords = extract_keywords(full_text)
 
                 article = {
                     "id": link,
