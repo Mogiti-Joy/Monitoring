@@ -187,7 +187,7 @@ for source, url in rss_feeds.items():
                 "month": datetime.datetime.now().strftime("%B"),
                 "year": datetime.datetime.now().year
             }
-            all_articles.append(article)
+all_articles.append(article)
 
 if all_articles:
         df = pd.DataFrame(all_articles)
