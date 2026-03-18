@@ -193,7 +193,7 @@ def collect_data():
                         new_count = len(combined_df) - len(existing_df)
                         print(f"Added {new_count} new articles")
                         
-                    else:
+                else:
         df.to_csv(file_name, index=False)
         print(f"Collected {len(df)} articles (first run)")
         
