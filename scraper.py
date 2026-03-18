@@ -149,30 +149,26 @@ def collect_data():
                     category = classify_article(full_text)
                     sentiment_score, sentiment_label = get_sentiment(full_text)
                     keywords = extract_keywords(full_text)
-
-                article = {
-                    "id": link,
-                    "source": source,
-                    "title": title,
-                    "summary": summary,
-                    "full_text": full_text,
-                    "link": link,
-                    "author": author,
-                    "published_date": published,
-                    "collected_date": datetime.datetime.now(),
-                    "category": category,
-                    "sentiment_score": sentiment_score,
-                    "sentiment_label": sentiment_label,
-                    "keywords": keywords
+                    article = {
+                        "id": link,
+                        "source": source,
+                        "title": title,
+                        "summary": summary,
+                        "full_text": full_text,
+                        "link": link,
+                        "author": author,
+                        "published_date": published,
+                        "collected_date": datetime.datetime.now(),
+                        "category": category,
+                        "sentiment_score": sentiment_score,
+                        "sentiment_label": sentiment_label,
+                        "keywords": keywords
                 }
-
-                all_articles.append(article)
-
-            except Exception as e:
-                print(f"Error processing entry from {source}: {e}")
-
-    except Exception as e:
-        print(f"Error with source {source}: {e}")
+                    all_articles.append(article)
+                except Exception as e:
+                    print(f"Error processing entry from {source}: {e}")
+                except Exception as e:
+                    print(f"Error with source {source}: {e}")
 
 # SAVE DATA (OUTSIDE LOOP)
 try:
