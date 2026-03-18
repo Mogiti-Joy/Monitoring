@@ -169,8 +169,7 @@ for source, url in rss_feeds.items():
         print(f"Error with {source}: {e}")
         sentiment_score, sentiment_label = get_sentiment(full_text)
         keywords = extract_keywords(full_text)
-
-            article = {
+        article = {
                 "id": link,
                 "source": source,
                 "title": title,
