@@ -4,9 +4,14 @@ import pandas as pd
 import os
 from textblob import TextBlob
 
+def clean_text(text):
+    text = str(text)
+    text = re.sub(r'<.*?>', '', text)  # remove HTML
+    text = re.sub(r'\s+', ' ', text)   # remove extra spaces
+    return text.strip()
 # Classification function
 def classify_article(text):
-    text = str(text).lower()
+    text = text.lower()
 
     if any(word in text for word in ["ai", "artificial intelligence", "machine learning"]):
         return "AI"
@@ -20,10 +25,20 @@ def classify_article(text):
         return "Climate"
     else:
         return "Other"
-        
-# Sentiment Function
+
+# Sentiment Function 
 def get_sentiment(text):
-    return TextBlob(str(text)).sentiment.polarity
+    blob = TextBlob(text)
+    polarity = blob.sentiment.polarity
+
+    if polarity > 0:
+        label = "Positive"
+    elif polarity < 0:
+        label = "Negative"
+    else:
+        label = "Neutral"
+
+    return polarity, label
 
 def collect_data():
     print("Collecting data...")
@@ -124,37 +139,58 @@ def collect_data():
 "Africa Transport": "https://africatransportpolicy.org/feed/",
 "Africa Urban Development": "https://africanurban.org/feed/"
     }
-def collect_data():
-    print("Collecting data...")
-
-    # Define the dictionary INSIDE the function
-    rss_feeds = {
-        "Africanews": "https://www.africanews.com/feed/",
-        # ... (rest of your feeds) ...
-        "Africa Urban Development": "https://africanurban.org/feed/"
-    }
-    
     all_articles = []
 
-    # MOVE THE LOOP INSIDE THE FUNCTION
     for source, url in rss_feeds.items():
         feed = feedparser.parse(url)
 
         for entry in feed.entries:
-            title = entry.get("title", "")
-            # ... (rest of your entry parsing code) ...
+            title = clean_text(entry.get("title", ""))
+            summary = clean_text(entry.get("summary", ""))
+            link = entry.get("link", "")
+            published = entry.get("published", "")
+            author = entry.get("author", "Unknown")
+
+            full_text = f"{title} {summary}"
+
+            category = classify_article(full_text)
+            sentiment_score, sentiment_label = get_sentiment(full_text)
+            keywords = extract_keywords(full_text)
 
             article = {
+                # IDENTIFIERS
+                "id": link,
                 "source": source,
+
+                # CONTENT
                 "title": title,
-                # ...
-                "date_collected": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "summary": summary,
+                "full_text": full_text,
+                "link": link,
+
+                # METADATA
+                "author": author,
+                "published_date": published,
+                "collected_date": datetime.datetime.now(),
+
+                # ANALYTICS FIELDS
+                "category": category,
+                "sentiment_score": sentiment_score,
+                "sentiment_label": sentiment_label,
+                "keywords": keywords,
+
+                # REPORTING FIELDS
+                "day": datetime.datetime.now().strftime("%A"),
+                "month": datetime.datetime.now().strftime("%B"),
+                "year": datetime.datetime.now().year
             }
+
             all_articles.append(article)
+df = pd.DataFrame(all_articles)
 
     # CREATE DATAFRAME AND SAVE INSIDE THE FUNCTION
-    df = pd.DataFrame(all_articles)
-    file_name = "daily_news.csv"
+    df.drop_duplicates(subset=["id"], inplace=True)
+    file_name = "news_dataset.csv"
 
     if os.path.exists(file_name):
         df.to_csv(file_name, mode='a', header=False, index=False)
