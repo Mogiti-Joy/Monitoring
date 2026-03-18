@@ -124,49 +124,45 @@ def collect_data():
 "Africa Transport": "https://africatransportpolicy.org/feed/",
 "Africa Urban Development": "https://africanurban.org/feed/"
     }
-all_articles = []
+def collect_data():
+    print("Collecting data...")
 
-for source, url in rss_feeds.items():
-    feed = feedparser.parse(url)
+    # Define the dictionary INSIDE the function
+    rss_feeds = {
+        "Africanews": "https://www.africanews.com/feed/",
+        # ... (rest of your feeds) ...
+        "Africa Urban Development": "https://africanurban.org/feed/"
+    }
+    
+    all_articles = []
 
-    for entry in feed.entries:
+    # MOVE THE LOOP INSIDE THE FUNCTION
+    for source, url in rss_feeds.items():
+        feed = feedparser.parse(url)
 
-        title = entry.get("title", "")
-        author = entry.get("author", "")
-        published = entry.get("published", "")
-        summary = entry.get("summary", "")
-        link = entry.get("link", "")
+        for entry in feed.entries:
+            title = entry.get("title", "")
+            # ... (rest of your entry parsing code) ...
 
-        text = f"{title} {summary}".lower()
+            article = {
+                "source": source,
+                "title": title,
+                # ...
+                "date_collected": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            all_articles.append(article)
 
-        category = classify_article(text)
-        sentiment = get_sentiment(text)
+    # CREATE DATAFRAME AND SAVE INSIDE THE FUNCTION
+    df = pd.DataFrame(all_articles)
+    file_name = "daily_news.csv"
 
-        article = {
-            "source": source,
-            "title": title,
-            "author": author,
-            "published": published,
-            "summary": summary,
-            "category": category,
-            "sentiment": sentiment,
-            "url": link,
-            "text": text,
-            "date_collected": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
+    if os.path.exists(file_name):
+        df.to_csv(file_name, mode='a', header=False, index=False)
+    else:
+        df.to_csv(file_name, index=False)
 
-        all_articles.append(article)
+    print(f"Collected {len(df)} articles")
 
-df = pd.DataFrame(all_articles)
-
-file_name = "daily_news.csv"
-
-if os.path.exists(file_name):
-    df.to_csv(file_name, mode='a', header=False, index=False)
-else:
-    df.to_csv(file_name, index=False)
-
-print(f"Collected {len(df)} articles")
-
+# This calls the function and runs everything inside it
 if __name__ == "__main__":
     collect_data()
