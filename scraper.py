@@ -102,24 +102,19 @@ def collect_data():
 "Africa Transport": "https://africatransportpolicy.org/feed/",
 "Africa Urban Development": "https://africanurban.org/feed/"
     }
-    def classify_article(text):
-        text = text.lower()
+def classify_article(text):
+    text = str(text).lower()
 
     if any(word in text for word in ["ai", "artificial intelligence", "machine learning"]):
         return "AI"
-
     elif any(word in text for word in ["health", "hospital", "disease", "malaria", "covid"]):
         return "Health"
-
     elif any(word in text for word in ["election", "government", "president", "parliament"]):
         return "Politics"
-
     elif any(word in text for word in ["business", "market", "finance", "economy"]):
         return "Business"
-
     elif any(word in text for word in ["climate", "flood", "drought", "weather"]):
         return "Climate"
-
     else:
         return "Other"
         
