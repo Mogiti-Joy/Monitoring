@@ -136,56 +136,48 @@ def collect_data():
 "Africa Urban Development": "https://africanurban.org/feed/"
     }
     all_articles = []
+    for source, feed in rss_feeds.items():
+    try:
+        for entry in feed.entries:
+            try:
+                title = entry.get("title", "")
+                summary = entry.get("summary", "")
+                link = entry.get("link", "")
+                author = entry.get("author", "Unknown")
+                published = entry.get("published", "")
 
-    for source, url in rss_feeds.items():
-        try:
-            feed = feedparser.parse(url)
+                full_text = f"{title} {summary}"
 
-            if feed.bozo:
-                print(f"Error parsing {source}: {feed.bozo_exception}")
-                continue
+                category = classify_article(full_text)
+                sentiment_score, sentiment_label = get_sentiment(full_text)
+                keywords = extract_keywords(full_text)
 
-            if not feed.entries:
-                print(f"No entries for {source}")
-                continue
+                article = {
+                    "id": link,
+                    "source": source,
+                    "title": title,
+                    "summary": summary,
+                    "full_text": full_text,
+                    "link": link,
+                    "author": author,
+                    "published_date": published,
+                    "collected_date": datetime.datetime.now(),
+                    "category": category,
+                    "sentiment_score": sentiment_score,
+                    "sentiment_label": sentiment_label,
+                    "keywords": keywords
+                }
 
-            for entry in feed.entries:
-                try:
-                    title = clean_text(entry.get("title", ""))
-                    summary = clean_text(entry.get("summary", ""))
-                    link = entry.get("link", "")
-                    published = entry.get("published", "")
-                    author = entry.get("author", "Unknown")
+                all_articles.append(article)
 
-                    full_text = f"{title} {summary}"
-                    category = classify_article(full_text)
-                    sentiment_score, sentiment_label = get_sentiment(full_text)
-                    keywords = extract_keywords(full_text)
-                    article = {
-                        "id": link,
-                        "source": source,
-                        "title": title,
-                        "summary": summary,
-                        "full_text": full_text,
-                        "link": link,
-                        "author": author,
-                        "published_date": published,
-                        "collected_date": datetime.datetime.now(),
-                        "category": category,
-                        "sentiment_score": sentiment_score,
-                        "sentiment_label": sentiment_label,
-                        "keywords": keywords
-                    }
-                    all_articles.append(article)
-                except Exception as e:
-                    print(f"Error processing entry from {source}: {e}")
-                except Exception as e:
-                    print(f"Error with {source}: {e}")
-                    try:
-    all_articles = []
+            except Exception as e:
+                print(f"Error processing entry from {source}: {e}")
 
-    # your scraping logic here
+    except Exception as e:
+        print(f"Error with source {source}: {e}")
 
+# SAVE DATA (OUTSIDE LOOP)
+try:
     if all_articles:
         df = pd.DataFrame(all_articles)
         df.drop_duplicates(subset=["id"], inplace=True)
@@ -211,7 +203,6 @@ def collect_data():
         print("No articles collected")
 
 except Exception as e:
-    print(f"Error: {e}")
-
+    print(f"Error saving data: {e}")
 if __name__ == "__main__":
     collect_data()
