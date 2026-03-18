@@ -2,8 +2,11 @@ name: Daily Data Collection
 
 on:
   schedule:
-    - cron: "0 20 * * *"   # 11 PM Kenya time (UTC+3)
-  workflow_dispatch:       # allows manual run
+    - cron: "0 20 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   run-script:
@@ -21,8 +24,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run script
+      - name: Run scraper
         run: python scraper.py
+
       - name: Commit and push CSV
         run: |
           git config --global user.name "github-actions"
