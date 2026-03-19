@@ -184,7 +184,7 @@ def collect_data():
                             else:
                                 df.to_csv(file_name, index=False)
                                 print(f"Collected {len(df)} articles (first run)")
-                            else:
+                         else:
                                 print("No articles collected")
                     except Exception as e:
                         print(f"Error saving data: {e}")
