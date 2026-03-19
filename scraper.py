@@ -166,9 +166,9 @@ def collect_data():
                 }
                     all_articles.append(article)
                 except Exception as e:
-                    print(f"Error processing entry from {source}: {e}")
-                except Exception as e:
-                    print(f"Error with source {source}: {e}")
+                   print(f"Error processing entry from {source}: {e}")
+    except Exception as e:
+       print(f"Error with source {source}: {e}")
                     try:
                         if all_articles:
                             df = pd.DataFrame(all_articles)
