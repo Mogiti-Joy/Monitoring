@@ -164,7 +164,7 @@ def collect_data():
                         "sentiment_label": sentiment_label,
                         "keywords": keywords
                 }
-                    all_articles.append(article)
+                all_articles.append(article)
             except Exception as e:
                 print(f"Error processing entry from {source}: {e}")
     except Exception as e:
