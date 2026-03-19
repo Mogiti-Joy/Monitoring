@@ -163,8 +163,8 @@ def collect_data():
                         "sentiment_score": sentiment_score,
                         "sentiment_label": sentiment_label,
                         "keywords": keywords
-                              }
-                              all_articles.append(article)            
+                    }
+                    all_articles.append(article)            
             except Exception as entry_error:
                 print(f"[Entry Error] {source}: {entry_error}")
     except Exception as feed_error:
