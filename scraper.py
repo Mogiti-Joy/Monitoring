@@ -137,8 +137,7 @@ def collect_data():
     }
     all_articles = []
     for source, feed_url in rss_feeds.items():
-    feed = feedparser.parse(feed_url)
-
+        feed = feedparser.parse(feed_url)
     try:
         for entry in feed.entries:
             try:
