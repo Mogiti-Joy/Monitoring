@@ -142,32 +142,31 @@ def collect_data():
             print(f"{source}: {len(feed.entries)} articles found")
             for entry in feed.entries:
                 try:
-                title = entry.get("title", "")
-                summary = entry.get("summary", "")
-                link = entry.get("link", "")
-                author = entry.get("author", "Unknown")
-                published = entry.get("published", "")
-                full_text = f"{title} {summary}"
-                category = classify_article(full_text)
-                sentiment_score, sentiment_label = get_sentiment(full_text)
-                keywords = extract_keywords(full_text)
-                article = {
-                    "id": link,
-                    "source": source,
-                    "title": title,
-                    "summary": summary,
-                    "full_text": full_text,
-                    "link": link,
-                    "author": author,
-                    "published_date": published,
-                    "collected_date": datetime.datetime.now(),
-                    "category": category,
-                    "sentiment_score": sentiment_score,
-                    "sentiment_label": sentiment_label,
-                    "keywords": keywords
-                }
-
-                all_articles.append(article)
+                    title = entry.get("title", "")
+                    summary = entry.get("summary", "")
+                    link = entry.get("link", "")
+                    author = entry.get("author", "Unknown")
+                    published = entry.get("published", "")
+                    full_text = f"{title} {summary}"
+                    category = classify_article(full_text)
+                    sentiment_score, sentiment_label = get_sentiment(full_text)
+                    keywords = extract_keywords(full_text)
+                    article = {
+                        "id": link,
+                        "source": source,
+                        "title": title,
+                        "summary": summary,
+                        "full_text": full_text,
+                        "link": link,
+                        "author": author,
+                        "published_date": published,
+                        "collected_date": datetime.datetime.now(),
+                        "category": category,
+                        "sentiment_score": sentiment_score,
+                        "sentiment_label": sentiment_label,
+                        "keywords": keywords
+                    }
+                    all_articles.append(article)
 
             except Exception as entry_error:
                 print(f"[Entry Error] {source}: {entry_error}")
