@@ -139,10 +139,7 @@ def collect_data():
     for source, feed_url in rss_feeds.items():
         try:
             feed = feedparser.parse(feed_url)
-
-        # Optional debug (VERY useful)
-        print(f"{source}: {len(feed.entries)} articles found")
-
+            print(f"{source}: {len(feed.entries)} articles found")
         for entry in feed.entries:
             try:
                 title = entry.get("title", "")
