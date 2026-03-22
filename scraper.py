@@ -41,13 +41,13 @@ def collect_data():
     
     # RSS feeds (you can paste ALL yours here)
     rss_feeds = {
-        "Africanews": "https://www.africanews.com/feed/",
-        "AllAfrica": "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf",
-        "Nation Africa": "https://nation.africa/rss",
-        "Business Daily Africa": "https://www.businessdailyafrica.com/rss",
-        "The Standard Kenya": "https://www.standardmedia.co.ke/rss",
-        "Capital FM Kenya": "https://www.capitalfm.co.ke/news/feed/",
-        "Kenyans.co.ke": "https://www.kenyans.co.ke/rss.xml",
+"Africanews": "https://www.africanews.com/feed/",
+"AllAfrica": "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf",
+"Nation Africa": "https://nation.africa/rss",
+"Business Daily Africa": "https://www.businessdailyafrica.com/rss",
+"The Standard Kenya": "https://www.standardmedia.co.ke/rss",
+"Capital FM Kenya": "https://www.capitalfm.co.ke/news/feed/",
+"Kenyans.co.ke": "https://www.kenyans.co.ke/rss.xml",
         # West Africa
 "Premium Times Nigeria": "https://www.premiumtimesng.com/feed",
 "Guardian Nigeria": "https://guardian.ng/feed/",
@@ -137,7 +137,7 @@ def collect_data():
     }
     all_articles = []
     for source, feed_url in rss_feeds.items():
-    try:
+        try:
         feed = feedparser.parse(feed_url)
 
         # Optional debug (VERY useful)
