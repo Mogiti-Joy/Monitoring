@@ -177,21 +177,33 @@ def collect_data():
 
         except Exception as feed_error:
             print(f"[Feed Error] {source}: {feed_error}")
+new_df = pd.DataFrame(all_articles)
+# Data collection
+    file_name = "daily_news.csv"
 
-    # include inside function
-    df = pd.DataFrame(all_articles)
-    df.to_csv("daily_news.csv", index=False)
+    if os.path.exists(file_name):
+        existing_df = pd.read_csv(file_name)
 
-    with open("data.txt", "a") as f:
+        combined_df = pd.concat([existing_df, new_df])
+        combined_df = combined_df.drop_duplicates(subset='link')
+
+        combined_df.to_csv(file_name, index=False)
+        final_df = combined_df
+    else:
+        new_df.to_csv(file_name, index=False)
+        final_df = new_df
+    # LOGGING
+    os.makedirs("data", exist_ok=True)
+
+    with open("data/log.txt", "a") as f:
         f.write(
-            f"Run at {datetime.datetime.now()} - Collected {len(df)} articles\n")
+            f"{datetime.datetime.now()} - Collected {len(new_df)} new articles | Total: {len(final_df)}\n"
+        )
 
-    print(f"Collected {len(df)} articles")
+    print(f"New articles: {len(new_df)}")
+    print(f"Total dataset size: {len(final_df)}")
 if __name__ == "__main__":
-    collect_data()
-
-
-            
+    collect_data()            
                         
                 
                         
