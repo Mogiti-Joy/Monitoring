@@ -179,8 +179,7 @@ def collect_data():
             print(f"[Feed Error] {source}: {feed_error}")
 new_df = pd.DataFrame(all_articles)
 # Data collection
-    file_name = "daily_news.csv"
-
+file_name = "daily_news.csv"
     if os.path.exists(file_name):
         existing_df = pd.read_csv(file_name)
 
