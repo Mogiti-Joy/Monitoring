@@ -46,7 +46,10 @@ def get_sentiment(text):
     return polarity, label
 def extract_companies(text, companies_list):
     text = text.lower()
-    found = [c for c in companies_list if c.lower() in text]
+    found = []
+    for company in companies_list:
+        if re.search(rf"\b{re.escape(company.lower())}\b", text):
+            found.append(company)
     return list(set(found))
 
 def collect_data():
@@ -160,9 +163,7 @@ def collect_data():
                     link = entry.get("link", "")
                     author = entry.get("author", "Unknown")
                     published = entry.get("published", "")
-
-                    full_text = f"{title} {summary}"
-
+                    full_text = clean_text(f"{title} {summary}")
                     category = classify_article(full_text)
                     sentiment_score, sentiment_label = get_sentiment(full_text)
                     keywords = extract_keywords(full_text)
