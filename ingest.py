@@ -44,6 +44,8 @@ df['virality_score'] = (
 # ANALYTICS
 # 1. Source Influence
 source_volume = df.groupby('source').size()
+source_sentiment = df.groupby('source')['sentiment_counts'].mean()
+
 source_score = pd.DataFrame({
     "volume": source_volume,
     "sentiment": source_sentiment,
