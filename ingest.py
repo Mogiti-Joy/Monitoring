@@ -138,12 +138,11 @@ if len(daily_counts) > 1:
         alerts.append("Spike in news volume detected")
 # Company spike alert
 for company in companies:
-df['date'] = pd.to_datetime(df['date'], errors='coerce')
-df = df.dropna(subset=['date'])
-latest_date = df['date'].max()
-recent = df[df['date'] == latest_date]
-
-prev_date = df.loc[df['date'] < latest_date, 'date'].max()
+    df['date'] = pd.to_datetime(df['date'], errors='coerce')
+    df = df.dropna(subset=['date'])
+    latest_date = df['date'].max()
+    recent = df[df['date'] == latest_date]
+    prev_date = df.loc[df['date'] < latest_date, 'date'].max()
 prev = df[df['date'] == prev_date] if pd.notna(prev_date) else pd.DataFrame()
 recent_count = recent['full_text'].str.lower().str.contains(company).sum()
 prev_count = prev['full_text'].str.lower().str.contains(company).sum()
