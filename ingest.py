@@ -33,11 +33,26 @@ df['text_length'] = df['full_text'].apply(lambda x: len(str(x)))
 df['keyword_count'] = df['keywords'].fillna(
     "").apply(lambda x: len(str(x).split(",")))
 
-# ANALYTICS (FROM NOTEBOOK)
+# Virality score (simple heuristic)
+df['virality_score'] = (
+    df['text_length'] * 0.3 +
+    df['keyword_count'] * 2 +
+    df['sentiment_score'].abs() * 10
+)
 
-# 1. Source distribution
-source_counts = df['source'].value_counts().reset_index()
-source_counts.columns = ['source', 'article_count']
+
+# ANALYTICS
+# 1. Source Influence
+source_score = pd.DataFrame({
+    "volume": source_volume,
+    "sentiment": source_sentiment,
+    "avg_virality": df.groupby('source')['virality_score'].mean()
+}).fillna(0).reset_index().rename(columns={"index": "source"})
+
+# 2. Top influential articles
+top_articles = df.sort_values(by="virality_score", ascending=False).head(20)
+
+top_articles.to_csv("data/top_articles.csv", index=False)
 
 # 2. Sentiment distribution
 sentiment_counts = df['sentiment_label'].value_counts().reset_index()
@@ -47,9 +62,16 @@ sentiment_counts.columns = ['sentiment', 'count']
 category_counts = df['category'].value_counts().reset_index()
 category_counts.columns = ['category', 'count']
 
-# 4. Brand tracking
-companies = ["safaricom", "kcb", "equity bank", "mtn"]
 
+# 4. Brand tracking
+companies = [
+    "safaricom", "kcb", "equity bank", "mtn", "airtel",
+    "vodacom", "standard bank", "absa", "ecobank",
+    "dangote", "guaranty trust bank", "gtbank",
+    "naspers", "shoprite", "kenya airways",
+    "ethiopian airlines", "totalenergies", "shell",
+    "google", "microsoft", "amazon", "CEMA", "SFA","African Wildlife Foundation", "AWF", "Science for Africa", "MPESA Foundation"
+]
 brand_results = []
 
 for company in companies:
@@ -60,12 +82,25 @@ for company in companies:
         "mentions": len(brand_df),
         "positive": (brand_df['sentiment_label'] == "Positive").sum(),
         "negative": (brand_df['sentiment_label'] == "Negative").sum(),
-        "neutral": (brand_df['sentiment_label'] == "Neutral").sum()
+        "neutral": (brand_df['sentiment_label'] == "Neutral").sum(),
+        "avg_sentiment": brand_df['sentiment_score'].mean()
     })
 
 brand_df_final = pd.DataFrame(brand_results)
 
-# 5. Time series (mentions over time)
+# 5. Trending Companies
+company_mentions = []
+
+for company in companies:
+    count = df['full_text'].str.lower().str.contains(company, na=False).sum()
+    company_mentions.append((company, count))
+
+trending_companies = pd.DataFrame(company_mentions, columns=["company", "mentions"])\
+    .sort_values(by="mentions", ascending=False).head(10)
+
+trending_companies.to_csv("data/trending_companies.csv", index=False)
+
+# 6. Time series (mentions over time)
 daily_trend = df.groupby('date').size().reset_index(name='articles_per_day')
 
 # 6. Sentiment trend over time
@@ -99,6 +134,16 @@ if len(daily_counts) > 1:
 
     if today > yesterday * 1.5:
         alerts.append("Spike in news volume detected")
+# Company spike alert
+for company in companies:
+    recent = df[df['date'] == df['date'].max()]
+    prev = df[df['date'] == df['date'].sort_values().unique()[-2]]
+
+    recent_count = recent['full_text'].str.lower().str.contains(company).sum()
+    prev_count = prev['full_text'].str.lower().str.contains(company).sum()
+
+    if prev_count > 0 and recent_count > prev_count * 2:
+        alerts.append(f"Spike in mentions for {company}")
 
 # Negative sentiment alert
 negative_ratio = (df['sentiment_label'] == 'Negative').mean()
