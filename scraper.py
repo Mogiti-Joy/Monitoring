@@ -34,8 +34,6 @@ companies = [
     "ethiopian airlines", "totalenergies", "shell",
     "google", "microsoft", "amazon", "CEMA", "SFA","African Wildlife Foundation", "AWF", "Science for Africa", "MPESA Foundation"
 ]
-full_text = f"{title} {summary}"
-companies_found = extract_companies(full_text)
 def get_sentiment(text):
     blob = TextBlob(text)
     polarity = blob.sentiment.polarity
