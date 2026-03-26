@@ -176,7 +176,7 @@ def collect_data():
                         "category": category,
                         "sentiment_score": sentiment_score,
                         "sentiment_label": sentiment_label,
-                        "companies_mentioned": companies_found
+                        "companies_mentioned": companies_found,
                         "keywords": keywords
                     }
 
