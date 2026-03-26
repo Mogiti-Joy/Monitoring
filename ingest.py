@@ -50,6 +50,8 @@ source_score = pd.DataFrame({
     "sentiment": source_sentiment,
     "avg_virality": df.groupby('source')['virality_score'].mean()
 }).fillna(0).reset_index().rename(columns={"index": "source"})
+source_counts = df['source'].value_counts().reset_index()
+source_counts.columns = ['source', 'count']
 
 # 2. Top influential articles
 top_articles = df.sort_values(by="virality_score", ascending=False).head(20)
@@ -72,7 +74,7 @@ companies = [
     "dangote", "guaranty trust bank", "gtbank",
     "naspers", "shoprite", "kenya airways",
     "ethiopian airlines", "totalenergies", "shell",
-    "google", "microsoft", "amazon", "CEMA", "SFA","African Wildlife Foundation", "AWF", "Science for Africa", "MPESA Foundation"
+    "google", "microsoft", "amazon", "CEMA", "SFA", "African Wildlife Foundation", "AWF", "Science for Africa", "MPESA Foundation"
 ]
 brand_results = []
 
@@ -147,8 +149,8 @@ prev = df[df['date'] == prev_date] if pd.notna(prev_date) else pd.DataFrame()
 recent_count = recent['full_text'].str.lower().str.contains(company).sum()
 prev_count = prev['full_text'].str.lower().str.contains(company).sum()
 
-    if prev_count > 0 and recent_count > prev_count * 2:
-        alerts.append(f"Spike in mentions for {company}")
+if prev_count > 0 and recent_count > prev_count * 2:
+    alerts.append(f"Spike in mentions for {company}")
 
 # Negative sentiment alert
 negative_ratio = (df['sentiment_label'] == 'Negative').mean()
