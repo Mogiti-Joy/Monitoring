@@ -44,6 +44,11 @@ def get_sentiment(text):
     else:
         label = "Neutral"
     return polarity, label
+def extract_companies(text, companies_list):
+    text = text.lower()
+    found = [c for c in companies_list if c.lower() in text]
+    return list(set(found))
+
 def collect_data():
     print("Collecting data...")
     
@@ -161,6 +166,7 @@ def collect_data():
                     category = classify_article(full_text)
                     sentiment_score, sentiment_label = get_sentiment(full_text)
                     keywords = extract_keywords(full_text)
+                    companies_found = extract_companies(full_text, companies)
 
                     article = {
                         "source": source,
