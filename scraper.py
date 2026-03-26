@@ -26,6 +26,15 @@ def classify_article(text):
         return "Climate"
     else:
         return "Other"
+companies = [
+    "safaricom", "kcb", "equity bank", "mtn", "airtel",
+    "vodacom", "standard bank", "absa", "ecobank",
+    "dangote", "guaranty trust bank", "gtbank",
+    "naspers", "shoprite", "kenya airways",
+    "ethiopian airlines", "totalenergies", "shell",
+    "google", "microsoft", "amazon", "CEMA", "SFA","African Wildlife Foundation", "AWF", "Science for Africa", "MPESA Foundation"
+]
+
 def get_sentiment(text):
     blob = TextBlob(text)
     polarity = blob.sentiment.polarity
@@ -155,7 +164,6 @@ def collect_data():
                     keywords = extract_keywords(full_text)
 
                     article = {
-                        "id": link,
                         "source": source,
                         "title": title,
                         "summary": summary,
@@ -167,6 +175,7 @@ def collect_data():
                         "category": category,
                         "sentiment_score": sentiment_score,
                         "sentiment_label": sentiment_label,
+                        "companies_mentioned": companies_found
                         "keywords": keywords
                     }
 
