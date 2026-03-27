@@ -47,11 +47,14 @@ def get_sentiment(text):
 def extract_companies(text, companies_list):
     text = text.lower()
     found = []
+
     for company in companies_list:
-        if re.search(rf"\b{re.escape(company.lower())}\b", text):
+        company_clean = company.lower()
+
+        # Allow partial + flexible matching
+        if company_clean in text:
             found.append(company)
     return list(set(found))
-
 def collect_data():
     print("Collecting data...")
     
