@@ -79,7 +79,7 @@ companies = [
 brand_results = []
 
 for company in companies:
-    brand_df = df[df['full_text'].str.lower().str.contains(company, na=False)]
+    brand_df = df[df['companies_mentioned'].fillna("").str.contains(company, case=False)]
 
     brand_results.append({
         "company": company,
