@@ -199,17 +199,6 @@ def collect_data():
             print(f"[Feed Error] {source}: {feed_error}")
         # ALWAYS create dataframe AFTER loop
     new_df = pd.DataFrame(all_articles)
-    # Get DB URL from github secrets
-DATABASE_URL = os.getenv("DATABASE_URL")
-# Connect to Neon
-engine = create_engine(DATABASE_URL)
-# Remove duplicates before inserting
-df.drop_duplicates(subset="link", inplace=True)
-
-# Insert into PostgreSQL
-df.to_sql("news", engine, if_exists="append", index=False)
-
-print("Data successfully saved to Neon PostgreSQL")
 file_name = "daily_news.csv"
 if os.path.exists(file_name):
     existing_df = pd.read_csv(file_name)
