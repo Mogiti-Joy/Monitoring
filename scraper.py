@@ -221,14 +221,14 @@ else:
         new_df.to_csv(file_name, index=False)
         final_df = new_df
         # Logging
-    os.makedirs("data", exist_ok=True)
-    with open("data/log.txt", "a") as f:
-        f.write(
+os.makedirs("data", exist_ok=True)
+with open("data/log.txt", "a") as f:
+    f.write(
             f"{datetime.datetime.now()} - Collected {len(new_df)} new articles | Total: {len(final_df)}\n"
         )
 
-    print(f"New articles: {len(new_df)}")
-    print(f"Total dataset size: {len(final_df)}")
+print(f"New articles: {len(new_df)}")
+print(f"Total dataset size: {len(final_df)}")
 if __name__ == "__main__":
     collect_data()
 
