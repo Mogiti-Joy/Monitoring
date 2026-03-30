@@ -2,3 +2,5 @@ feedparser
 newspaper3k
 pandas
 textblob
+sqlalchemy
+psycopg2-binary
