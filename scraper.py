@@ -3,6 +3,7 @@ import feedparser
 import pandas as pd
 import os
 import re
+from sqlalchemy import create_engine
 from textblob import TextBlob
 def extract_keywords(text):
     words = text.lower().split()
