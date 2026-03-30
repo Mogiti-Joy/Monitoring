@@ -210,8 +210,7 @@ df.drop_duplicates(subset="link", inplace=True)
 df.to_sql("news", engine, if_exists="append", index=False)
 
 print("Data successfully saved to Neon PostgreSQL")
-
-    file_name = "daily_news.csv"
+file_name = "daily_news.csv"
 
     if os.path.exists(file_name):
         existing_df = pd.read_csv(file_name)
