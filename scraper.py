@@ -211,18 +211,16 @@ df.to_sql("news", engine, if_exists="append", index=False)
 
 print("Data successfully saved to Neon PostgreSQL")
 file_name = "daily_news.csv"
-
-    if os.path.exists(file_name):
-        existing_df = pd.read_csv(file_name)
-        combined_df = pd.concat([existing_df, new_df])
-        combined_df = combined_df.drop_duplicates(subset='link')
-        combined_df.to_csv(file_name, index=False)
-        final_df = combined_df
-    else:
+if os.path.exists(file_name):
+    existing_df = pd.read_csv(file_name)
+    combined_df = pd.concat([existing_df, new_df])
+    combined_df = combined_df.drop_duplicates(subset='link')
+    combined_df.to_csv(file_name, index=False)
+    final_df = combined_df
+else:
         new_df.to_csv(file_name, index=False)
         final_df = new_df
-
-    # Logging
+        # Logging
     os.makedirs("data", exist_ok=True)
     with open("data/log.txt", "a") as f:
         f.write(
