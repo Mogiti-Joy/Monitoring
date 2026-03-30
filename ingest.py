@@ -1,6 +1,8 @@
 import pandas as pd
 import os
 from collections import Counter
+from sqlalchemy import create_engine
+
 
 print(" Running ingestion pipeline...")
 
@@ -11,6 +13,19 @@ if not os.path.exists("daily_news.csv"):
 
 # Load data
 df = pd.read_csv("daily_news.csv")
+# Create connection
+engine = create_engine(DATABASE_URL)
+
+# Remove duplicates
+df.drop_duplicates(subset="link", inplace=True)
+
+# Push to Neon PostgreSQL
+df.to_sql("news", engine, if_exists="append", index=False)
+
+print("Data uploaded to Neon PostgreSQL")
+
+# Get DB connection from GitHub Secrets
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 if df.empty:
     print(" No data to process.")
