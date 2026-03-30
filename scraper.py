@@ -198,7 +198,7 @@ def collect_data():
         except Exception as feed_error:
             print(f"[Feed Error] {source}: {feed_error}")
         # ALWAYS create dataframe AFTER loop
-    new_df = pd.DataFrame(all_articles)
+new_df = pd.DataFrame(all_articles)
 file_name = "daily_news.csv"
 if os.path.exists(file_name):
     existing_df = pd.read_csv(file_name)
