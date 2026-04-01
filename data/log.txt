@@ -12,3 +12,4 @@
 2026-03-31 17:55:26.593938 - Collected 740 new articles | Total: 2954
 2026-03-31 18:26:11.204482 - Collected 770 new articles | Total: 3003
 2026-03-31 20:49:18.383178 - Collected 725 new articles | Total: 3075
+2026-04-01 20:51:06.461543 - Collected 760 new articles | Total: 3379
