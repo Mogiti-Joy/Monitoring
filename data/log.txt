@@ -52,3 +52,4 @@
 2026-05-08 21:06:21.226827 - Collected 757 new articles | Total: 13487
 2026-05-09 20:50:11.925308 - Collected 756 new articles | Total: 13710
 2026-05-10 20:54:44.924984 - Collected 766 new articles | Total: 13929
+2026-05-11 21:22:24.387572 - Collected 763 new articles | Total: 14251
