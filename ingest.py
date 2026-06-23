@@ -85,10 +85,11 @@ df['virality_score'] = (
 df['created_at'] = datetime.datetime.now()
 
 # 6. PUSH TO NEON POSTGRESQL
-# We drop columns we computed purely for local analytical calculations (like date and counts) 
-# to ensure it strictly conforms to your database destinations
-db_payload = df.drop(columns=['date', 'hour', 'day_of_week', 'text_length', 'keyword_count'], errors='ignore')
-
+# Drop columns we computed purely for local analytical calculations (like date and counts) 
+db_payload = df.drop(
+    columns=['date', 'hour', 'day_of_week', 'text_length', 'keyword_count', 'monitoring_targets'], 
+    errors='ignore'
+)
 log.info(f"Syncing {len(db_payload)} records to the 'news' table in Neon...")
 db_payload.to_sql("news", engine, if_exists="append", index=False)
 log.info("New data successfully synced to Neon PostgreSQL.")
@@ -97,7 +98,7 @@ log.info("New data successfully synced to Neon PostgreSQL.")
 companies = [
     "safaricom", "kcb", "equity bank", "mtn", "airtel",
     "vodacom", "standard bank", "absa", "ecobank", "kenya airways",
-    "google", "microsoft", "amazon", "CEMA", "SFA", "AWF", "MPESA Foundation",
+    "google", "microsoft", "amazon", "Centre for epidemiological modelling", "CEMA", "SFA", " Africa wildlife foundation", "AWF", "MPESA Foundation",
     "Mastercard Foundation"
 ]
 
