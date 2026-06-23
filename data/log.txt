@@ -85,3 +85,4 @@
 2026-06-20 21:22:46.570366 - Collected 717 new articles | Total: 22543
 2026-06-21 21:18:50.226785 - Collected 707 new articles | Total: 22701
 2026-06-22 22:09:16.640149 - Collected 757 new articles | Total: 23010
+2026-06-23T10:19:43.423837 | new=3058 | total=25564 | elapsed=572.5s
