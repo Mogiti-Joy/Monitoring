@@ -86,10 +86,17 @@ df['created_at'] = datetime.datetime.now()
 
 # 6. PUSH TO NEON POSTGRESQL
 # Drop columns we computed purely for local analytical calculations (like date and counts) 
-db_payload = df.drop(
-    columns=['date', 'hour', 'day_of_week', 'text_length', 'keyword_count', 'monitoring_targets'], 
-    errors='ignore'
-)
+columns_to_drop = [
+    'date', 'hour', 'day_of_week', 
+    'text_length', 'keyword_count', 
+    'monitoring_targets', 'char_count', 'virality_score'
+]
+
+db_payload = df.drop(columns=columns_to_drop, errors='ignore')
+
+log.info(f"Syncing {len(db_payload)} records to the 'news' table in Neon...")
+db_payload.to_sql("news", engine, if_exists="append", index=False)
+print("New data synced to Neon PostgreSQL with timestamps.")
 log.info(f"Syncing {len(db_payload)} records to the 'news' table in Neon...")
 db_payload.to_sql("news", engine, if_exists="append", index=False)
 log.info("New data successfully synced to Neon PostgreSQL.")
