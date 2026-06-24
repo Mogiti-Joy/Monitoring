@@ -59,7 +59,8 @@ df = df.dropna(subset=['title', 'link'])
 # 4. FEATURE ENGINEERING
 # Convert strings to actual datetime objects for accurate time-series analysis
 df['published_date'] = pd.to_datetime(df['published_date'], errors='coerce', utc=True)
-
+df['published_date'] = df['published_date'].fillna(pd.Timestamp.now(tz='UTC'))
+df['date'] = df['published_date'].dt.date
 # Fallback to collection timestamp if published_date string fails parsing
 df['published_date'] = df['published_date'].fillna(pd.to_datetime(df['collected_date'], errors='coerce'))
 # If both fail, fallback to current time
