@@ -94,14 +94,19 @@ columns_to_drop = [
 
 db_payload = df.drop(columns=columns_to_drop, errors='ignore')
 
-# PostgreSQL custom engine function to ignore constraint conflicts gracefully
+# PostgreSQL custom engine function to target unique key columns directly
 def postgres_on_conflict_do_nothing(table, conn, keys, data_iter):
     data = [dict(zip(keys, row)) for row in data_iter]
     if not data:
         return
-    stmt = insert(table.table).values(data).on_conflict_do_nothing(
-        constraint='news_title_link_uq'
+    
+    stmt = insert(table.table).values(data)
+    
+    # Replaced named constraint reference with direct index target columns
+    stmt = stmt.on_conflict_do_nothing(
+        index_elements=['title', 'link']
     )
+    
     conn.execute(stmt)
 
 log.info(f"Syncing {len(db_payload)} records to the 'news' table in Neon...")
@@ -121,7 +126,7 @@ companies = [
     "google", "microsoft", "amazon", "Centre for epidemiological modelling", 
     "CEMA", "SFA", "Africa wildlife foundation", "AWF", "MPESA Foundation",
     "Mastercard Foundation", "Garnet partners", "African women in agricultural research and development",
-    "Kenyatta National Hospital", "Institute of engineering rwanda","rwanda stock exchange",
+    "Kenyatta National Hospital", "Institute of engineering rwanda", "rwanda stock exchange",
 ]
 
 df['temp_search_text'] = (df['title'].fillna("") + " " + df['summary'].fillna("")).str.lower()
