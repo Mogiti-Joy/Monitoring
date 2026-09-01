@@ -130,11 +130,16 @@ log.info("New data successfully synced to Neon PostgreSQL.")
 ENTITY_SCHEMA_SQL = """
 CREATE SCHEMA IF NOT EXISTS entities;
 
--- news.id was never given a primary key/unique constraint (the table
--- was created implicitly by pandas to_sql), so the FK below would fail
--- with "no unique constraint matching given keys" without this first.
+-- news.id was never given a primary key/unique constraint, AND every
+-- row so far has NULL in that column (it was added to the table with
+-- no default, so pandas to_sql — which never writes to a column your
+-- DataFrame doesn't have — left it empty on every insert). This block
+-- backfills real values, attaches an auto-increment default so future
+-- inserts stop landing as NULL, then applies NOT NULL + PRIMARY KEY.
 -- Idempotent: only runs if news has no PK/UNIQUE constraint yet.
 DO $$
+DECLARE
+    max_id INT;
 BEGIN
     IF NOT EXISTS (
         SELECT 1
@@ -142,6 +147,26 @@ BEGIN
         JOIN pg_class t ON c.conrelid = t.oid
         WHERE t.relname = 'news' AND c.contype IN ('p', 'u')
     ) THEN
+        -- backfill NULL ids with sequential values, continuing from
+        -- the current max (0 if every row is NULL)
+        SELECT COALESCE(MAX(id), 0) INTO max_id FROM news;
+
+        WITH numbered AS (
+            SELECT ctid, row_number() OVER (ORDER BY ctid) AS rn
+            FROM news WHERE id IS NULL
+        )
+        UPDATE news SET id = max_id + numbered.rn
+        FROM numbered
+        WHERE news.ctid = numbered.ctid;
+
+        -- attach a sequence so future to_sql appends (which never
+        -- supply id) get one assigned automatically
+        CREATE SEQUENCE IF NOT EXISTS news_id_seq;
+        PERFORM setval('news_id_seq', (SELECT COALESCE(MAX(id), 0) FROM news));
+        ALTER TABLE news ALTER COLUMN id SET DEFAULT nextval('news_id_seq');
+        ALTER SEQUENCE news_id_seq OWNED BY news.id;
+
+        ALTER TABLE news ALTER COLUMN id SET NOT NULL;
         ALTER TABLE news ADD PRIMARY KEY (id);
     END IF;
 END $$;
