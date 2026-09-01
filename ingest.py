@@ -130,6 +130,22 @@ log.info("New data successfully synced to Neon PostgreSQL.")
 ENTITY_SCHEMA_SQL = """
 CREATE SCHEMA IF NOT EXISTS entities;
 
+-- news.id was never given a primary key/unique constraint (the table
+-- was created implicitly by pandas to_sql), so the FK below would fail
+-- with "no unique constraint matching given keys" without this first.
+-- Idempotent: only runs if news has no PK/UNIQUE constraint yet.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint c
+        JOIN pg_class t ON c.conrelid = t.oid
+        WHERE t.relname = 'news' AND c.contype IN ('p', 'u')
+    ) THEN
+        ALTER TABLE news ADD PRIMARY KEY (id);
+    END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS entities.entities (
     id SERIAL PRIMARY KEY,
     canonical_name TEXT NOT NULL,
