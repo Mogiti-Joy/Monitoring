@@ -3,7 +3,7 @@ import sys
 import datetime
 import logging
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text, bindparam
 from sqlalchemy.dialects.postgresql import insert
 
 # LOGGING SETUP
@@ -89,7 +89,9 @@ df['created_at'] = datetime.datetime.now(datetime.timezone.utc)
 columns_to_drop = [
     'date', 'hour', 'day_of_week', 
     'text_length', 'keyword_count', 
-    'monitoring_targets', 'char_count', 'virality_score'
+    'monitoring_targets', 'char_count', 'virality_score',
+    'companies_detected'  # NER output — used by sync_entity_graph() below,
+                          # not stored on `news` (that table's schema doesn't have it)
 ]
 
 db_payload = df.drop(columns=columns_to_drop, errors='ignore')
@@ -118,6 +120,193 @@ db_payload.to_sql(
     method=postgres_on_conflict_do_nothing
 )
 log.info("New data successfully synced to Neon PostgreSQL.")
+
+# ═════════════════════════════════════════════════════════════
+# NEW — ENTITY KNOWLEDGE GRAPH (built on the same `engine`)
+# ═════════════════════════════════════════════════════════════
+# article_id references news(id) directly — no separate articles
+# table, since `news` already is that table.
+
+ENTITY_SCHEMA_SQL = """
+CREATE SCHEMA IF NOT EXISTS entities;
+
+CREATE TABLE IF NOT EXISTS entities.entities (
+    id SERIAL PRIMARY KEY,
+    canonical_name TEXT NOT NULL,
+    country TEXT,
+    sector TEXT,
+    confidence_score FLOAT DEFAULT 0.0,
+    source TEXT, -- 'ner_pipeline' | 'client_onboarding' | 'registry_enrichment'
+    verified BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS entities.entity_aliases (
+    id SERIAL PRIMARY KEY,
+    entity_id INT REFERENCES entities.entities(id),
+    alias_text TEXT NOT NULL,
+    UNIQUE(entity_id, alias_text)
+);
+
+CREATE TABLE IF NOT EXISTS entities.entity_mentions (
+    id SERIAL PRIMARY KEY,
+    entity_id INT REFERENCES entities.entities(id),
+    article_id INT REFERENCES news(id),
+    mention_date TIMESTAMP,
+    mention_count INT DEFAULT 1
+);
+
+CREATE INDEX IF NOT EXISTS idx_entity_aliases_text
+    ON entities.entity_aliases (alias_text);
+CREATE INDEX IF NOT EXISTS idx_entity_mentions_entity_date
+    ON entities.entity_mentions (entity_id, mention_date);
+"""
+
+# Reuses the same watchlist you already have in the brand-tracking
+# section below — kept as one list so you're not maintaining two
+# copies of the same company names.
+ENTITY_WATCHLIST = [
+    "safaricom", "kcb", "equity bank", "mtn", "airtel",
+    "vodacom", "standard bank", "absa", "ecobank", "kenya airways",
+    "google", "microsoft", "amazon", "Centre for epidemiological modelling",
+    "CEMA", "SFA", "Africa wildlife foundation", "AWF", "MPESA Foundation",
+    "Mastercard Foundation", "Garnet partners", "African women in agricultural research and development",
+    "Kenyatta National Hospital", "Institute of engineering rwanda", "rwanda stock exchange",
+]
+
+
+def init_entity_schema(engine) -> None:
+    """Idempotent — safe to run on every ingestion pass. Creates the
+    schema/tables if missing, then seeds entities from the watchlist
+    as verified, source='client_onboarding'."""
+    with engine.begin() as conn:
+        conn.execute(text(ENTITY_SCHEMA_SQL))
+
+        for name in ENTITY_WATCHLIST:
+            existing = conn.execute(
+                text("SELECT entity_id FROM entities.entity_aliases WHERE alias_text = :name"),
+                {"name": name},
+            ).fetchone()
+            if existing:
+                continue
+
+            entity_id = conn.execute(
+                text("""
+                    INSERT INTO entities.entities (canonical_name, source, verified, confidence_score)
+                    VALUES (:name, 'client_onboarding', TRUE, 1.0)
+                    RETURNING id
+                """),
+                {"name": name},
+            ).scalar()
+
+            conn.execute(
+                text("""
+                    INSERT INTO entities.entity_aliases (entity_id, alias_text)
+                    VALUES (:entity_id, :name)
+                    ON CONFLICT (entity_id, alias_text) DO NOTHING
+                """),
+                {"entity_id": entity_id, "name": name},
+            )
+    log.info("[EntityGraph] Schema ready, watchlist seeded")
+
+
+def get_or_create_entity(conn, alias_text: str) -> int:
+    """Exact-match alias lookup, else creates a new low-confidence
+    entity with source='ner_pipeline'. Swap in rapidfuzz here if
+    exact matching starts producing near-duplicates in practice —
+    no need to guess the threshold before you see real data."""
+    row = conn.execute(
+        text("SELECT entity_id FROM entities.entity_aliases WHERE alias_text = :alias"),
+        {"alias": alias_text},
+    ).fetchone()
+    if row:
+        return row[0]
+
+    entity_id = conn.execute(
+        text("""
+            INSERT INTO entities.entities (canonical_name, source, verified, confidence_score)
+            VALUES (:alias, 'ner_pipeline', FALSE, 0.3)
+            RETURNING id
+        """),
+        {"alias": alias_text},
+    ).scalar()
+
+    conn.execute(
+        text("""
+            INSERT INTO entities.entity_aliases (entity_id, alias_text)
+            VALUES (:entity_id, :alias)
+            ON CONFLICT (entity_id, alias_text) DO NOTHING
+        """),
+        {"entity_id": entity_id, "alias": alias_text},
+    )
+    return entity_id
+
+
+def sync_entity_graph(engine, df: pd.DataFrame) -> None:
+    """Looks up the just-inserted rows' `news.id` by (link), matches
+    each article's text against ENTITY_WATCHLIST (verified, high
+    confidence), and separately reads the scraper's companies_detected
+    column — NER output — for anything outside the watchlist (unverified,
+    confidence 0.3). Writes one entity_mentions row per match, from
+    either source. No-ops cleanly if df is empty."""
+    if df.empty:
+        return
+
+    init_entity_schema(engine)
+
+    with engine.connect() as conn:
+        stmt = text("SELECT id, link FROM news WHERE link IN :links").bindparams(
+            bindparam("links", expanding=True)
+        )
+        news_ids = pd.read_sql(stmt, conn, params={"links": df['link'].tolist()})
+
+    id_map = dict(zip(news_ids['link'], news_ids['id']))
+
+    search_text = (df['title'].fillna("") + " " + df['summary'].fillna("")).str.lower()
+    has_ner_column = 'companies_detected' in df.columns
+
+    mention_count = 0
+    with engine.begin() as conn:
+        for idx, row in df.iterrows():
+            article_id = id_map.get(row['link'])
+            if article_id is None:
+                continue  # row didn't make it into `news` (e.g. conflict skip)
+
+            text_blob = search_text.loc[idx]
+            watchlist_matches = {c for c in ENTITY_WATCHLIST if c.lower() in text_blob}
+
+            ner_matches = set()
+            if has_ner_column:
+                raw = row.get('companies_detected', "")
+                if isinstance(raw, str) and raw.strip():
+                    ner_matches = {c.strip() for c in raw.split(",") if c.strip()}
+
+            # union — a name that's both on the watchlist and NER-detected
+            # only needs one mention row, and get_or_create_entity() will
+            # resolve it to the existing verified watchlist entity anyway
+            all_matches = watchlist_matches | ner_matches
+            if not all_matches:
+                continue
+
+            for company in all_matches:
+                entity_id = get_or_create_entity(conn, company)
+                conn.execute(
+                    text("""
+                        INSERT INTO entities.entity_mentions (entity_id, article_id, mention_date)
+                        VALUES (:entity_id, :article_id, :mention_date)
+                    """),
+                    {
+                        "entity_id": entity_id,
+                        "article_id": int(article_id),
+                        "mention_date": row['published_date'],
+                    },
+                )
+                mention_count += 1
+
+    log.info(f"[EntityGraph] Recorded {mention_count} entity mentions across {len(id_map)} articles")
+
+
+sync_entity_graph(engine, df)
 
 # BRAND TRACKING & REPUTATION ENGINE
 companies = [
