@@ -90,8 +90,10 @@ columns_to_drop = [
     'date', 'hour', 'day_of_week', 
     'text_length', 'keyword_count', 
     'monitoring_targets', 'char_count', 'virality_score',
-    'companies_detected'  # NER output — used by sync_entity_graph() below,
-                          # not stored on `news` (that table's schema doesn't have it)
+    'companies_detected',  # NER output — used by sync_entity_graph() below,
+                           # not stored on `news` (that table's schema doesn't have it)
+    'article_pk'           # surrogate PK — assigned by the DB sequence, never
+                           # supplied from the DataFrame side
 ]
 
 db_payload = df.drop(columns=columns_to_drop, errors='ignore')
@@ -122,31 +124,27 @@ db_payload.to_sql(
 log.info("New data successfully synced to Neon PostgreSQL.")
 
 # ═════════════════════════════════════════════════════════════
-# ENTITY KNOWLEDGE GRAPH (built on the same `engine`)
+# NEW — ENTITY KNOWLEDGE GRAPH (built on the same `engine`)
 # ═════════════════════════════════════════════════════════════
+# article_id references news(id) directly — no separate articles
+# table, since `news` already is that table.
 
 ENTITY_SCHEMA_SQL = """
 CREATE SCHEMA IF NOT EXISTS entities;
 
--- If news.id is currently TEXT/VARCHAR, convert it safely to BIGINT first.
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT 1 
-        FROM information_schema.columns 
-        WHERE table_name = 'news' 
-          AND column_name = 'id' 
-          AND data_type IN ('text', 'character varying')
-    ) THEN
-        ALTER TABLE news 
-        ALTER COLUMN id TYPE BIGINT USING (NULLIF(id, '')::BIGINT);
-    END IF;
-END $$;
+-- The existing `news.id` column is TEXT and holds article URLs, not
+-- identifiers — it's effectively a duplicate of `link`. It can never
+-- serve as a numeric primary key, and casting it to BIGINT will always
+-- fail on the first URL. So: leave it alone entirely and add a real
+-- surrogate key on a new column.
+--
+-- ADD COLUMN ... BIGSERIAL auto-backfills every existing row with a
+-- sequence value, so no manual backfill step is needed.
+-- Idempotent: IF NOT EXISTS on the column, and the PK is only added
+-- when news has no PK/UNIQUE constraint yet.
+ALTER TABLE news ADD COLUMN IF NOT EXISTS article_pk BIGSERIAL;
 
--- Backfill missing IDs, set auto-increment sequence, and attach Primary Key
 DO $$
-DECLARE
-    max_id BIGINT;
 BEGIN
     IF NOT EXISTS (
         SELECT 1
@@ -154,25 +152,7 @@ BEGIN
         JOIN pg_class t ON c.conrelid = t.oid
         WHERE t.relname = 'news' AND c.contype IN ('p', 'u')
     ) THEN
-        -- Safely pull current max id as numeric
-        SELECT COALESCE(MAX(id), 0) INTO max_id FROM news;
-
-        WITH numbered AS (
-            SELECT ctid, row_number() OVER (ORDER BY ctid) AS rn
-            FROM news WHERE id IS NULL
-        )
-        UPDATE news SET id = max_id + numbered.rn
-        FROM numbered
-        WHERE news.ctid = numbered.ctid;
-
-        -- Create sequence starting after highest current ID
-        CREATE SEQUENCE IF NOT EXISTS news_id_seq;
-        PERFORM setval('news_id_seq', (SELECT COALESCE(MAX(id), 0) FROM news));
-        ALTER TABLE news ALTER COLUMN id SET DEFAULT nextval('news_id_seq');
-        ALTER SEQUENCE news_id_seq OWNED BY news.id;
-
-        ALTER TABLE news ALTER COLUMN id SET NOT NULL;
-        ALTER TABLE news ADD PRIMARY KEY (id);
+        ALTER TABLE news ADD PRIMARY KEY (article_pk);
     END IF;
 END $$;
 
@@ -197,7 +177,7 @@ CREATE TABLE IF NOT EXISTS entities.entity_aliases (
 CREATE TABLE IF NOT EXISTS entities.entity_mentions (
     id SERIAL PRIMARY KEY,
     entity_id INT REFERENCES entities.entities(id),
-    article_id BIGINT REFERENCES news(id),
+    article_id BIGINT REFERENCES news(article_pk),
     mention_date TIMESTAMP,
     mention_count INT DEFAULT 1
 );
@@ -208,6 +188,9 @@ CREATE INDEX IF NOT EXISTS idx_entity_mentions_entity_date
     ON entities.entity_mentions (entity_id, mention_date);
 """
 
+# Reuses the same watchlist you already have in the brand-tracking
+# section below — kept as one list so you're not maintaining two
+# copies of the same company names.
 ENTITY_WATCHLIST = [
     "safaricom", "kcb", "equity bank", "mtn", "airtel",
     "vodacom", "standard bank", "absa", "ecobank", "kenya airways",
@@ -255,7 +238,9 @@ def init_entity_schema(engine) -> None:
 
 def get_or_create_entity(conn, alias_text: str) -> int:
     """Exact-match alias lookup, else creates a new low-confidence
-    entity with source='ner_pipeline'."""
+    entity with source='ner_pipeline'. Swap in rapidfuzz here if
+    exact matching starts producing near-duplicates in practice —
+    no need to guess the threshold before you see real data."""
     row = conn.execute(
         text("SELECT entity_id FROM entities.entity_aliases WHERE alias_text = :alias"),
         {"alias": alias_text},
@@ -296,12 +281,12 @@ def sync_entity_graph(engine, df: pd.DataFrame) -> None:
     init_entity_schema(engine)
 
     with engine.connect() as conn:
-        stmt = text("SELECT id, link FROM news WHERE link IN :links").bindparams(
+        stmt = text("SELECT article_pk, link FROM news WHERE link IN :links").bindparams(
             bindparam("links", expanding=True)
         )
         news_ids = pd.read_sql(stmt, conn, params={"links": df['link'].tolist()})
 
-    id_map = dict(zip(news_ids['link'], news_ids['id']))
+    id_map = dict(zip(news_ids['link'], news_ids['article_pk']))
 
     search_text = (df['title'].fillna("") + " " + df['summary'].fillna("")).str.lower()
     has_ner_column = 'companies_detected' in df.columns
@@ -322,6 +307,9 @@ def sync_entity_graph(engine, df: pd.DataFrame) -> None:
                 if isinstance(raw, str) and raw.strip():
                     ner_matches = {c.strip() for c in raw.split(",") if c.strip()}
 
+            # union — a name that's both on the watchlist and NER-detected
+            # only needs one mention row, and get_or_create_entity() will
+            # resolve it to the existing verified watchlist entity anyway
             all_matches = watchlist_matches | ner_matches
             if not all_matches:
                 continue
