@@ -122,24 +122,31 @@ db_payload.to_sql(
 log.info("New data successfully synced to Neon PostgreSQL.")
 
 # ═════════════════════════════════════════════════════════════
-# NEW — ENTITY KNOWLEDGE GRAPH (built on the same `engine`)
+# ENTITY KNOWLEDGE GRAPH (built on the same `engine`)
 # ═════════════════════════════════════════════════════════════
-# article_id references news(id) directly — no separate articles
-# table, since `news` already is that table.
 
 ENTITY_SCHEMA_SQL = """
 CREATE SCHEMA IF NOT EXISTS entities;
 
--- news.id was never given a primary key/unique constraint, AND every
--- row so far has NULL in that column (it was added to the table with
--- no default, so pandas to_sql — which never writes to a column your
--- DataFrame doesn't have — left it empty on every insert). This block
--- backfills real values, attaches an auto-increment default so future
--- inserts stop landing as NULL, then applies NOT NULL + PRIMARY KEY.
--- Idempotent: only runs if news has no PK/UNIQUE constraint yet.
+-- If news.id is currently TEXT/VARCHAR, convert it safely to BIGINT first.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_name = 'news' 
+          AND column_name = 'id' 
+          AND data_type IN ('text', 'character varying')
+    ) THEN
+        ALTER TABLE news 
+        ALTER COLUMN id TYPE BIGINT USING (NULLIF(id, '')::BIGINT);
+    END IF;
+END $$;
+
+-- Backfill missing IDs, set auto-increment sequence, and attach Primary Key
 DO $$
 DECLARE
-    max_id INT;
+    max_id BIGINT;
 BEGIN
     IF NOT EXISTS (
         SELECT 1
@@ -147,8 +154,7 @@ BEGIN
         JOIN pg_class t ON c.conrelid = t.oid
         WHERE t.relname = 'news' AND c.contype IN ('p', 'u')
     ) THEN
-        -- backfill NULL ids with sequential values, continuing from
-        -- the current max (0 if every row is NULL)
+        -- Safely pull current max id as numeric
         SELECT COALESCE(MAX(id), 0) INTO max_id FROM news;
 
         WITH numbered AS (
@@ -159,8 +165,7 @@ BEGIN
         FROM numbered
         WHERE news.ctid = numbered.ctid;
 
-        -- attach a sequence so future to_sql appends (which never
-        -- supply id) get one assigned automatically
+        -- Create sequence starting after highest current ID
         CREATE SEQUENCE IF NOT EXISTS news_id_seq;
         PERFORM setval('news_id_seq', (SELECT COALESCE(MAX(id), 0) FROM news));
         ALTER TABLE news ALTER COLUMN id SET DEFAULT nextval('news_id_seq');
@@ -192,7 +197,7 @@ CREATE TABLE IF NOT EXISTS entities.entity_aliases (
 CREATE TABLE IF NOT EXISTS entities.entity_mentions (
     id SERIAL PRIMARY KEY,
     entity_id INT REFERENCES entities.entities(id),
-    article_id INT REFERENCES news(id),
+    article_id BIGINT REFERENCES news(id),
     mention_date TIMESTAMP,
     mention_count INT DEFAULT 1
 );
@@ -203,9 +208,6 @@ CREATE INDEX IF NOT EXISTS idx_entity_mentions_entity_date
     ON entities.entity_mentions (entity_id, mention_date);
 """
 
-# Reuses the same watchlist you already have in the brand-tracking
-# section below — kept as one list so you're not maintaining two
-# copies of the same company names.
 ENTITY_WATCHLIST = [
     "safaricom", "kcb", "equity bank", "mtn", "airtel",
     "vodacom", "standard bank", "absa", "ecobank", "kenya airways",
@@ -253,9 +255,7 @@ def init_entity_schema(engine) -> None:
 
 def get_or_create_entity(conn, alias_text: str) -> int:
     """Exact-match alias lookup, else creates a new low-confidence
-    entity with source='ner_pipeline'. Swap in rapidfuzz here if
-    exact matching starts producing near-duplicates in practice —
-    no need to guess the threshold before you see real data."""
+    entity with source='ner_pipeline'."""
     row = conn.execute(
         text("SELECT entity_id FROM entities.entity_aliases WHERE alias_text = :alias"),
         {"alias": alias_text},
@@ -322,9 +322,6 @@ def sync_entity_graph(engine, df: pd.DataFrame) -> None:
                 if isinstance(raw, str) and raw.strip():
                     ner_matches = {c.strip() for c in raw.split(",") if c.strip()}
 
-            # union — a name that's both on the watchlist and NER-detected
-            # only needs one mention row, and get_or_create_entity() will
-            # resolve it to the existing verified watchlist entity anyway
             all_matches = watchlist_matches | ner_matches
             if not all_matches:
                 continue
