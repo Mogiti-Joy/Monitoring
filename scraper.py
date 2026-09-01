@@ -8,7 +8,8 @@ import httpx
 import pandas as pd
 import trafilatura
 from textblob import TextBlob
- 
+import spacy
+
 # LOGGING
 os.makedirs("data", exist_ok=True)
 logging.basicConfig(
@@ -20,22 +21,35 @@ logging.basicConfig(
     ]
 )
 log = logging.getLogger("mediapulse")
- 
+
+# ─────────────────────────────────────────────
+# NER MODEL — loaded once at module level
+# ─────────────────────────────────────────────
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    nlp = None
+    log.warning("[NER] spaCy model not found — run: python -m spacy download en_core_web_sm")
+
 # CONFIGURATION
 
 # MONITORING TARGETS
- 
+
 MONITORING_TARGETS = {
- 
+
     # ── ACTIVE CLIENTS / PRIORITY ENTITIES ───────────────────
     "Mastercard Foundation": [
         "Mastercard Foundation",
         "mastercardfdn",
         "Mastercard Foundation Africa",
         "Mastercard Foundation scholars",
+        "Mastercard Foundation CITL",
+        "Mastercard FFoundation Centere for innovative teaching and learning",
+        "Mastercard Foundation Transitions",
+        "Mastercard Foundation Scholars Programme",
         "Mastercard Foundation COVID",
     ],
- 
+
     "Safaricom": [
         "Safaricom",
         "M-Pesa",
@@ -43,20 +57,20 @@ MONITORING_TARGETS = {
         "Safaricom PLC",
         "Safaricom 5G",
     ],
- 
+
     "Equity Group": [
         "Equity Bank",
         "Equity Group",
         "Equity Group Holdings",
         "James Mwangi",
     ],
- 
+
     "KCB Group": [
         "KCB Bank",
         "KCB Group",
         "Kenya Commercial Bank",
     ],
- 
+
     # ── SECTOR MONITORING — for trend intelligence ─────────────
     "Africa Fintech": [
         "Africa fintech",
@@ -69,7 +83,7 @@ MONITORING_TARGETS = {
         "Wave money",
         "Moniepoint",
     ],
- 
+
     "Africa Tech & AI": [
         "Africa artificial intelligence",
         "Africa AI",
@@ -78,7 +92,7 @@ MONITORING_TARGETS = {
         "Africa deep tech",
         "African developer",
     ],
- 
+
     "Africa Health": [
         "Africa health",
         "Africa malaria",
@@ -89,7 +103,7 @@ MONITORING_TARGETS = {
         "KEMSA Kenya",
         "Africa health system",
     ],
- 
+
     "Africa Education": [
         "Africa education",
         "Africa university",
@@ -98,7 +112,7 @@ MONITORING_TARGETS = {
         "Africa TVET",
         "youth employment Africa",
     ],
- 
+
     "Africa Climate": [
         "Africa climate change",
         "Africa flooding",
@@ -108,7 +122,7 @@ MONITORING_TARGETS = {
         "Africa green economy",
         "Africa carbon",
     ],
- 
+
     "Africa Development Finance": [
         "African Development Bank",
         "AfDB",
@@ -118,7 +132,7 @@ MONITORING_TARGETS = {
         "Africa foreign direct investment",
         "Africa FDI",
     ],
- 
+
     # ── MEDIA & COMMUNICATIONS — your core Distory beat ────────
     "Kenya Media": [
         "Nation Media Group",
@@ -128,7 +142,7 @@ MONITORING_TARGETS = {
         "Kenya press freedom",
         "Kenya media",
     ],
- 
+
     "Africa PR & Communications": [
         "Africa public relations",
         "Africa communications",
@@ -137,7 +151,7 @@ MONITORING_TARGETS = {
         "Africa marketing",
         "Africa crisis communications",
     ],
- 
+
     # ── POLITICAL & GOVERNANCE — for journalist clients ─────────
     "Kenya Politics": [
         "Kenya government",
@@ -147,7 +161,7 @@ MONITORING_TARGETS = {
         "Kenya Treasury",
         "Kenya elections",
     ],
- 
+
     "East Africa Economy": [
         "East Africa economy",
         "East African Community",
@@ -158,7 +172,7 @@ MONITORING_TARGETS = {
         "Rwanda economy",
     ],
 }
- 
+
 # ─────────────────────────────────────────────────────────────
 # DERIVED — don't edit these, they're built from targets above
 # ─────────────────────────────────────────────────────────────
@@ -168,26 +182,26 @@ ALL_SEARCH_TERMS = list({
     for terms in MONITORING_TARGETS.values()
     for term in terms
 })
- 
+
 # Reverse lookup: term → label (for tagging articles)
 TERM_TO_LABEL = {
     term: label
     for label, terms in MONITORING_TARGETS.items()
     for term in terms
 }
- 
+
 # Legacy alias — used by GDELT loop (first target's first term)
 GLOBAL_ENTITY = list(MONITORING_TARGETS.keys())[0]
- 
-# ── API KEYS 
+
+# ── API KEYS
 
 NEWS_API_KEY = "e1f9967a17244ba1af8092bf56388485"
- 
+
 # ── OUTPUT & TIMING ───────────────────────────────────────────
 OUTPUT_FILE         = "daily_news.csv"
 REQUEST_TIMEOUT     = 15
 RATE_LIMIT_DELAY    = 0.3   # seconds between requests — be polite
- 
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -197,7 +211,7 @@ HEADERS = {
     "Accept": "application/rss+xml, application/xml, text/xml, */*",
     "Accept-Language": "en-US,en;q=0.9",
 }
- 
+
 # ─────────────────────────────────────────────
 # ENTITY & COMPANY WATCHLIST
 # ─────────────────────────────────────────────
@@ -237,11 +251,11 @@ COMPANIES = [
     "google africa", "microsoft africa", "amazon africa",
     "meta africa", "uber africa", "bolt africa",
 ]
- 
+
 # MONITOR_KEYWORDS is now derived from MONITORING_TARGETS above
 # All search terms across all clients and topics — auto-built
 MONITOR_KEYWORDS = ALL_SEARCH_TERMS
- 
+
 # ─────────────────────────────────────────────
 # TEXT PROCESSING HELPERS
 # ─────────────────────────────────────────────
@@ -251,8 +265,8 @@ def clean_text(text: str) -> str:
     text = re.sub(r'http\S+', '', text)        # remove URLs
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
- 
- 
+
+
 def get_sentiment(text: str) -> tuple[float, str]:
     try:
         blob = TextBlob(text)
@@ -261,8 +275,8 @@ def get_sentiment(text: str) -> tuple[float, str]:
         return round(p, 4), label
     except Exception:
         return 0.0, "Neutral"
- 
- 
+
+
 def classify_article(text: str) -> str:
     t = text.lower()
     rules = [
@@ -287,8 +301,8 @@ def classify_article(text: str) -> str:
         if any(kw in t for kw in keywords):
             return category
     return "General"
- 
- 
+
+
 def extract_keywords(text: str, n: int = 8) -> str:
     stopwords = {
         "about", "after", "again", "before", "between", "could",
@@ -306,14 +320,27 @@ def extract_keywords(text: str, n: int = 8) -> str:
         freq[w] = freq.get(w, 0) + 1
     top = sorted(freq, key=freq.get, reverse=True)[:n]
     return ", ".join(top)
- 
- 
+
+
 def extract_companies(text: str) -> str:
     t = text.lower()
     found = [c for c in COMPANIES if c.lower() in t]
     return ", ".join(sorted(set(found)))
- 
- 
+
+
+def extract_companies_ner(text: str) -> str:
+    """Detects ANY organization mention via NER, not just names in
+    the static COMPANIES list above. This is what surfaces brands
+    you haven't pre-loaded — extract_companies() only ever finds
+    names already in that ~90-entry list, no matter how often an
+    unlisted brand is mentioned across your sources."""
+    if not nlp or not text:
+        return ""
+    doc = nlp(text[:5000])  # cap length — NER on huge text is slow, gains little
+    orgs = {ent.text.strip() for ent in doc.ents if ent.label_ == "ORG"}
+    return ", ".join(sorted(orgs))
+
+
 def extract_full_text(url: str) -> str:
     """Use trafilatura to get full article text from URL."""
     try:
@@ -325,8 +352,8 @@ def extract_full_text(url: str) -> str:
     except Exception:
         pass
     return ""
- 
- 
+
+
 def match_monitoring_targets(text: str) -> str:
     """
     Returns a comma-separated string of matched monitoring target labels.
@@ -339,8 +366,8 @@ def match_monitoring_targets(text: str) -> str:
         if term.lower() in t:
             matched.add(label)
     return ", ".join(sorted(matched)) if matched else ""
- 
- 
+
+
 def build_article(source: str, title: str, summary: str,
                   link: str, author: str, published: str,
                   extra_text: str = "") -> dict:
@@ -358,17 +385,18 @@ def build_article(source: str, title: str, summary: str,
         "monitoring_targets":   match_monitoring_targets(full_text),
         "sentiment_score":      sentiment_score,
         "sentiment_label":      sentiment_label,
-        "companies_mentioned":  extract_companies(full_text),
+        "companies_mentioned":  extract_companies(full_text),      # curated watchlist — high precision
+        "companies_detected":   extract_companies_ner(full_text),  # NER — broad, noisier, catches unlisted brands
         "keywords":             extract_keywords(full_text),
         "char_count":           len(full_text),
     }
- 
- 
+
+
 # ─────────────────────────────────────────────
 # RSS FEEDS — EXPANDED TO 130+ SOURCES
 # ─────────────────────────────────────────────
 RSS_FEEDS = {
- 
+
     # ── EAST AFRICA ────────────────────────────────────────────
     "Nation Africa":                "https://nation.africa/rss",
     "Business Daily Africa":        "https://www.businessdailyafrica.com/rss",
@@ -382,28 +410,28 @@ RSS_FEEDS = {
     "NTV Kenya":                    "https://www.ntv.co.ke/feed/",
     "K24 Kenya":                    "https://www.k24tv.co.ke/feed/",
     "People Daily Kenya":           "https://www.pd.co.ke/feed/",
- 
+
     # Uganda
     "Daily Monitor Uganda":         "https://www.monitor.co.ug/rss",
     "New Vision Uganda":            "https://www.newvision.co.ug/rss",
     "The Observer Uganda":          "https://observer.ug/feed/",
     "Nile Post Uganda":             "https://nilepost.co.ug/feed/",
- 
+
     # Tanzania
     "The Citizen Tanzania":         "https://www.thecitizen.co.tz/feed/",
     "Daily News Tanzania":          "https://www.dailynews.co.tz/rss.php",
     "IPP Media Tanzania":           "https://www.ippmedia.com/rss",
- 
+
     # Rwanda / Burundi
     "The New Times Rwanda":         "https://www.newtimes.co.rw/feed/",
     "KT Press Rwanda":              "https://www.ktpress.rw/feed/",
- 
+
     # Ethiopia / Somalia / DRC
     "Addis Standard Ethiopia":      "https://addisstandard.com/feed/",
     "Ethiopian Reporter":           "https://www.ethiopianreporter.com/feed/",
     "Hiiraan Online Somalia":       "https://hiiraan.com/rss/news4.xml",
     "Radio France Intl Africa FR":  "https://www.rfi.fr/fr/rss",
- 
+
     # ── WEST AFRICA ─────────────────────────────────────────────
     "Premium Times Nigeria":        "https://www.premiumtimesng.com/feed",
     "Guardian Nigeria":             "https://guardian.ng/feed/",
@@ -419,7 +447,7 @@ RSS_FEEDS = {
     "Leadership Nigeria":           "https://leadership.ng/feed/",
     "Channels TV Nigeria":          "https://www.channelstv.com/feed/",
     "Arise News Nigeria":           "https://www.arise.tv/feed/",
- 
+
     # Ghana
     "GhanaWeb":                     "https://www.ghanaweb.com/GhanaHomePage/rss.xml",
     "Graphic Online Ghana":         "https://www.graphic.com.gh/rss.html",
@@ -428,13 +456,13 @@ RSS_FEEDS = {
     "Modern Ghana":                 "https://www.modernghana.com/rss/news.xml",
     "Ghana Business News":          "https://www.ghanabusinessnews.com/feed/",
     "Daily Graphic Ghana":          "https://www.graphic.com.gh/feed/",
- 
+
     # Senegal / Côte d'Ivoire / Francophone
     "Jeune Afrique":                "https://www.jeuneafrique.com/feed/",
     "Africanews FR":                "https://fr.africanews.com/feed/",
     "RFI Afrique":                  "https://www.rfi.fr/afrique/rss",
     "Le Monde Afrique":             "https://www.lemonde.fr/afrique/rss_full.xml",
- 
+
     # ── SOUTHERN AFRICA ─────────────────────────────────────────
     "News24 South Africa":          "https://www.news24.com/news24/rss",
     "Daily Maverick":               "https://www.dailymaverick.co.za/feed/",
@@ -447,21 +475,21 @@ RSS_FEEDS = {
     "Fin24":                        "https://www.news24.com/fin24/rss",
     "Moneyweb":                     "https://www.moneyweb.co.za/feed/",
     "Bizcommunity SA":              "https://www.bizcommunity.com/rss/196/91.rss",
- 
+
     # Zimbabwe
     "ZimLive":                      "https://www.zimlive.com/feed/",
     "The Zimbabwe Mail":            "https://www.thezimbabwemail.com/feed/",
     "NewsDay Zimbabwe":             "https://www.newsday.co.zw/feed/",
     "The Herald Zimbabwe":          "https://www.herald.co.zw/feed/",
- 
+
     # Zambia / Malawi / Mozambique
     "Zambia Daily Mail":            "https://www.daily-mail.co.zm/feed/",
     "Nyasa Times Malawi":           "https://www.nyasatimes.com/feed/",
     "The Namibian":                 "https://www.namibian.com.na/feed/",
- 
+
     # Botswana / Lesotho / eSwatini
     "Mmegi Botswana":               "https://www.mmegi.bw/feed/",
- 
+
     # ── NORTH AFRICA ────────────────────────────────────────────
     "Egypt Today":                  "https://www.egypttoday.com/feed",
     "Ahram Online":                 "https://english.ahram.org.eg/RSS/",
@@ -469,7 +497,7 @@ RSS_FEEDS = {
     "Algerie Presse Service":       "https://www.aps.dz/en/feed",
     "Tunisia Live":                 "https://www.tunisialive.net/feed/",
     "Libya Herald":                 "https://libyaherald.com/feed/",
- 
+
     # ── PAN-AFRICAN & CONTINENTAL ───────────────────────────────
     "Africanews EN":                "https://www.africanews.com/feed/",
     "AllAfrica":                    "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf",
@@ -487,7 +515,7 @@ RSS_FEEDS = {
     "Africa Briefing":              "https://www.africabriefing.com/feed",
     "Africa Intelligence":          "https://www.africaintelligence.com/rss",
     "Africa.com":                   "https://www.africa.com/feed/",
- 
+
     # ── TECH & INNOVATION ───────────────────────────────────────
     "TechCabal":                    "https://techcabal.com/feed/",
     "TechPoint Africa":             "https://techpoint.africa/feed/",
@@ -499,7 +527,7 @@ RSS_FEEDS = {
     "Technext Nigeria":             "https://technext.ng/feed/",
     "Rest of World":                "https://restofworld.org/feed/",
     "African Business Tech":        "https://africanbusinessmagazine.com/category/technology/feed/",
- 
+
     # ── DEVELOPMENT / NGO / MULTILATERAL ────────────────────────
     "Devex":                        "https://www.devex.com/news/rss",
     "ReliefWeb Africa":             "https://reliefweb.int/updates/rss.xml",
@@ -512,14 +540,14 @@ RSS_FEEDS = {
     "UNECA":                        "https://www.uneca.org/rss.xml",
     "AfDB News":                    "https://www.afdb.org/en/rss",
     "APO Group Wire":               "https://apo-opa.com/feed/",
- 
+
     # ── GLOBAL WITH AFRICA LENS ─────────────────────────────────
     "BBC Africa":                   "http://feeds.bbci.co.uk/news/world/africa/rss.xml",
     "Al Jazeera Africa":            "https://www.aljazeera.com/xml/rss/all.xml",
     "VOA Africa":                   "https://www.voanews.com/rss/zaXQy5BVYQ",
     "RFI Africa EN":                "https://www.rfi.fr/en/rss",
     "DW Africa":                    "https://rss.dw.com/rdf/rss-en-africa",
- 
+
     # ── SECTOR-SPECIFIC ─────────────────────────────────────────
     "Africa Oil and Power":         "https://www.africaoilandpower.com/feed/",
     "Africa Energy Portal":         "https://africa-energy-portal.org/feed/",
@@ -530,14 +558,14 @@ RSS_FEEDS = {
     "Africa Food Security":         "https://africafoodsecurity.org/feed/",
     "Kenya Wallstreet Finance":     "https://kenyawallstreet.com/category/finance/feed/",
     "African Leadership Magazine":  "https://afrleadership.com/feed/",
- 
-    # OWNED MEDIA BASELINE 
+
+    # OWNED MEDIA BASELINE
     "Mastercard Foundation":        "https://mastercardfdn.org/feed/",
 }
- 
+
 # GOOGLE NEWS RSS
 def get_google_news_feeds() -> dict:
- 
+
     queries = [
         GLOBAL_ENTITY,
         "Africa fintech",
@@ -560,8 +588,8 @@ def get_google_news_feeds() -> dict:
             f"q={encoded}&hl=en-US&gl=US&ceid=US:en"
         )
     return feeds
- 
- 
+
+
 # COLLECTOR FUNCTIONS
 
 def collect_rss(feeds: dict, client: httpx.Client) -> list[dict]:
@@ -585,10 +613,10 @@ def collect_rss(feeds: dict, client: httpx.Client) -> list[dict]:
                 content   = ""
                 if entry.get("content"):
                     content = entry["content"][0].get("value", "")
- 
+
                 if not title and not link:
                     continue
- 
+
                 articles.append(build_article(
                     source, title, summary, link, author, published, content
                 ))
@@ -598,8 +626,8 @@ def collect_rss(feeds: dict, client: httpx.Client) -> list[dict]:
         except Exception as e:
             log.error(f"[RSS Error] {source}: {e}")
     return articles
- 
- 
+
+
 def collect_gdelt(client: httpx.Client, query: str = None) -> list[dict]:
     articles = []
     query = query or GLOBAL_ENTITY
@@ -630,8 +658,8 @@ def collect_gdelt(client: httpx.Client, query: str = None) -> list[dict]:
     except Exception as e:
         log.error(f"[GDELT Error]: {e}")
     return articles
- 
- 
+
+
 def collect_newsapi(client: httpx.Client, api_key: str) -> list[dict]:
     articles = []
     if not api_key:
@@ -667,18 +695,18 @@ def collect_newsapi(client: httpx.Client, api_key: str) -> list[dict]:
         except Exception as e:
             log.error(f"[NewsAPI Error] {keyword}: {e}")
     return articles
- 
- 
- 
+
+
+
 # SAVE
 def save_articles(new_articles: list[dict]) -> tuple[int, int]:
     if not new_articles:
         log.warning("No articles to save.")
         return 0, 0
- 
+
     new_df = pd.DataFrame(new_articles)
     new_df = new_df[new_df["title"].str.strip() != ""]   # drop empty titles
- 
+
     if os.path.exists(OUTPUT_FILE):
         existing_df = pd.read_csv(OUTPUT_FILE)
         combined   = pd.concat([existing_df, new_df], ignore_index=True)
@@ -688,44 +716,44 @@ def save_articles(new_articles: list[dict]) -> tuple[int, int]:
     else:
         new_df.to_csv(OUTPUT_FILE, index=False)
         return len(new_df), len(new_df)
- 
- 
+
+
 # MASTER PIPELINE
 def collect_data():
     start = time.time()
     log.info("=" * 60)
     log.info("MediaPulse Africa Pipeline v3.0 — Starting")
     log.info("=" * 60)
- 
+
     all_articles = []
- 
+
     with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
- 
+
         # 1. RSS — static African feeds
         log.info(f"[Step 1] RSS collection: {len(RSS_FEEDS)} feeds")
         all_articles += collect_rss(RSS_FEEDS, client)
- 
+
         # 2. Google News RSS — dynamic keyword feeds
         google_feeds = get_google_news_feeds()
         log.info(f"[Step 2] Google News RSS: {len(google_feeds)} keyword feeds")
         all_articles += collect_rss(google_feeds, client)
- 
+
         # 3. GDELT — for each monitored keyword
         log.info("[Step 3] GDELT global intelligence layer")
         for kw in MONITOR_KEYWORDS:
             all_articles += collect_gdelt(client, kw)
             time.sleep(1)
- 
+
         # 4. NewsAPI
         log.info("[Step 4] NewsAPI aggregator")
         all_articles += collect_newsapi(client, NEWS_API_KEY)
- 
- 
+
+
     # 6. Save
     new_count, total_count = save_articles(all_articles)
- 
+
     elapsed = round(time.time() - start, 1)
- 
+
     # Execution log
     with open("data/log.txt", "a") as f:
         f.write(
@@ -733,16 +761,14 @@ def collect_data():
             f"new={new_count} | total={total_count} | "
             f"elapsed={elapsed}s\n"
         )
- 
+
     log.info("=" * 60)
     log.info(f"Pipeline complete in {elapsed}s")
     log.info(f"New articles collected : {new_count}")
     log.info(f"Total dataset size     : {total_count}")
     log.info(f"Output file            : {OUTPUT_FILE}")
     log.info("=" * 60)
- 
- 
+
+
 if __name__ == "__main__":
     collect_data()
-
- 
