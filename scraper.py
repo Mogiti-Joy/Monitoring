@@ -37,17 +37,15 @@ except OSError:
 
 MONITORING_TARGETS = {
 
-    # ── ACTIVE CLIENTS / PRIORITY ENTITIES ───────────────────
-    "Mastercard Foundation": [
-        "Mastercard Foundation",
-        "mastercardfdn",
-        "Mastercard Foundation Africa",
+    # ── ACTIVE CLIENTS
+        "Mastercard Foundation Africa Secondary Education",
         "Mastercard Foundation scholars",
         "Mastercard Foundation CITL",
-        "Mastercard FFoundation Centere for innovative teaching and learning",
+        "Mastercard FFoundation centre for innovative teaching and learning",
         "Mastercard Foundation Transitions",
         "Mastercard Foundation Scholars Programme",
         "Mastercard Foundation COVID",
+        "Mastercard Foundation Seconadry Education",
     ],
 
     "Safaricom": [
