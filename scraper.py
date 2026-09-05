@@ -36,9 +36,8 @@ except OSError:
 # MONITORING TARGETS
 
 MONITORING_TARGETS = {
-[
     # ── ACTIVE CLIENTS
-        "Mastercard Foundation Africa Secondary Education",
+    "Mastercard Foundation Africa Secondary Education": [
         "Mastercard Foundation scholars",
         "Mastercard Foundation CITL",
         "Mastercard FFoundation centre for innovative teaching and learning",
